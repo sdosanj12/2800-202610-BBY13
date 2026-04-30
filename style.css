@@ -1,0 +1,133 @@
+/* --- Root Variables: --- */
+:root {
+    --brand-blue: #0f4c81;
+    --brand-accent: #e6f0fa;
+    --bg-body: #f4f7f6;
+    --bg-panel: #ffffff;
+    --text-dark: #2c3e50;
+    --text-light: #7f8c8d;
+    --border-color: #dcdde1;
+}
+
+/* --- Global Setup --- */
+body {
+    background-color: var(--bg-body);
+    color: var(--text-dark);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: "Lato", sans-serif;
+}
+
+/* --- Navigation --- */
+#navbar-container .navbar {
+    background-color: var(--brand-blue);
+    padding: 1rem 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.navbar .logo {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    gap: 2vw;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-item {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 3px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.nav-item:hover {
+    color: #ffffff;
+    border-bottom-color: var(--brand-accent);
+}
+
+/* --- Main Layout --- */
+.container {
+    flex: 1;
+    width: 90%;
+    max-width: 1000px;
+    margin: 4vh auto;
+}
+
+.card {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 4% 5%;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 2rem;
+    color: var(--brand-blue);
+    border-bottom: 2px solid var(--brand-accent);
+    padding-bottom: 1rem;
+    margin-bottom: 2vh;
+}
+
+p {
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+/* --- Footer --- */
+.footer {
+    background-color: var(--bg-panel);
+    border-top: 1px solid var(--border-color);
+    padding: 3vh 0;
+    margin-top: auto;
+}
+
+.footer-content {
+    width: 90%;
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-info p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.footer-links {
+    list-style: none;
+    display: flex;
+    gap: 3vw;
+    margin: 0;
+    padding: 0;
+}
+
+.footer-links a {
+    color: var(--text-light);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.footer-links a:hover {
+    color: var(--brand-blue);
+}
