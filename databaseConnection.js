@@ -1,12 +1,22 @@
 require('dotenv').config();
-const MongoClient = require('mongodb').MongoClient;
+const mongoose = require('mongoose');
 
-const mongodb_host = process.env.MONGODB_HOST;
-const mongodb_user = process.env.MONGODB_USER;
-const mongodb_password = process.env.MONGODB_PASSWORD;
+const { MONGODB_HOST, MONGODB_USER, MONGODB_PASSWORD, MONGODB_DATABASE } = process.env;
 
-const atlasURI = `mongodb+srv://${mongodb_user}:${mongodb_password}@${mongodb_host}/?retryWrites=true&w=majority`;
+if (!MONGODB_HOST || !MONGODB_USER || !MONGODB_PASSWORD || !MONGODB_DATABASE) {
+  console.warn('[DB] Warning: one or more MongoDB env vars are missing — connection will fail');
+}
 
-const database = new MongoClient(atlasURI);
+const uri = `mongodb+srv://${MONGODB_USER}:${MONGODB_PASSWORD}@${MONGODB_HOST}/${MONGODB_DATABASE}?retryWrites=true&w=majority`;
 
-module.exports = { database };
+async function connectDB() {
+  try {
+    await mongoose.connect(uri);
+    console.log('[DB] Mongoose connected to Atlas');
+  } catch (err) {
+    console.error('[DB] Connection failed:', err.message);
+    process.exit(1);
+  }
+}
+
+module.exports = { connectDB };
