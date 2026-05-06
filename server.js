@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 
 const { connectDB } = require('./databaseConnection');
 const User = require('./models/User');
+const FoodRequest = require('./models/FoodRequest');
 
 const app = express();
 
@@ -281,6 +282,132 @@ app.get('/staff/dashboard', (req, res) => {
 app.use('/volunteer', sessionValidation, volunteerOrStaffAuthorization);
 app.get('/volunteer/dashboard', (req, res) => {
   res.render('volunteer-dashboard', { username: req.user.username });
+});
+
+/* === Food Request API === */
+
+// POST /api/requests — client submits a food request
+app.post('/api/requests', (req, res, next) => {
+  if (!isValidSession(req)) return res.status(401).json({ error: 'Not authenticated' });
+  next();
+}, async (req, res) => {
+  const schema = Joi.object({
+    householdSize: Joi.number().integer().min(1).max(20).required(),
+    dietaryNeeds: Joi.array().items(Joi.string()).max(10).default([]),
+    notes: Joi.string().max(500).allow('').optional(),
+    pickupDate: Joi.date().optional(),
+    pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  try {
+    const foodRequest = await FoodRequest.create({
+      clientId: req.user.userId,
+      householdSize: value.householdSize,
+      dietaryNeeds: value.dietaryNeeds,
+      notes: value.notes,
+      pickupDate: value.pickupDate,
+      pickupTime: value.pickupTime,
+      status: 'pending'
+    });
+    return res.status(201).json(foodRequest);
+  } catch (err) {
+    console.error('FoodRequest create error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/requests/pending — staff views all pending requests (FIFO)
+app.get('/api/requests/pending', sessionValidation, staffAuthorization, async (req, res) => {
+  try {
+    const requests = await FoodRequest.find({ status: 'pending' })
+      .populate('clientId', 'username email householdSize dietaryNeeds')
+      .sort({ createdAt: 1 });
+    return res.status(200).json({ count: requests.length, requests });
+  } catch (err) {
+    console.error('Fetch pending error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/requests/me — client views their own request history
+app.get('/api/requests/me', sessionValidation, async (req, res) => {
+  try {
+    const requests = await FoodRequest.find({ clientId: req.user.userId })
+      .sort({ createdAt: -1 });
+    return res.status(200).json({ count: requests.length, requests });
+  } catch (err) {
+    console.error('Fetch my requests error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/requests/:id/approve — staff approves a request
+app.patch('/api/requests/:id/approve', sessionValidation, staffAuthorization, async (req, res) => {
+  const schema = Joi.object({
+    pickupDate: Joi.date().greater('now').required(),
+    pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required()
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  try {
+    const updated = await FoodRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'approved',
+        pickupDate: value.pickupDate,
+        pickupTime: value.pickupTime,
+        approvedBy: req.user.userId,
+        approvedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: 'Request not found' });
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error('Approve error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/requests/:id/deny — staff denies a request
+app.patch('/api/requests/:id/deny', sessionValidation, staffAuthorization, async (req, res) => {
+  const schema = Joi.object({
+    denialReason: Joi.string().max(500).allow('').optional()
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  try {
+    const updated = await FoodRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'denied',
+        denialReason: value.denialReason || '',
+        approvedBy: req.user.userId,
+        approvedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: 'Request not found' });
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error('Deny error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
 });
 
 /* === Static + 404 === */
