@@ -47,6 +47,7 @@ async function run() {
 
 run().catch((err) => {
   console.error('Test failed:', err.message);
+  console.error(err.stack);
   mongoose.disconnect();
   process.exit(1);
 });
