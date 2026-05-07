@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - Food Bank Tracker</title>
+    <!-- Combined skeleton and dashboard CSS -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Lexend+Deca:wght@100..900&display=swap"
+        rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <header id="navbar-container"></header>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar Navigation based on Wireframe -->
+            <nav class="sidebar col-md-3 col-lg-2 d-md-block bg-body-tertiary border-end">
+                <div class="position-sticky pt-3">
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-uppercase text-muted">Overview</h6>
+                    <ul class="nav flex-column mb-3">
+                        <li class="nav-item">
+                            <a class="nav-link active rounded mx-2 bg-secondary-subtle" href="#">Dashboard</a>
+                        </li>
+                    </ul>
+
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-uppercase text-muted">Inventory</h6>
+                    <ul class="nav flex-column mb-3">
+                        <li class="nav-item"><a class="nav-link" href="#">All Items</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#">History & Audit Log</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#">Low Stock Alerts</a></li>
+                    </ul>
+
+                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-uppercase text-muted">Employees</h6>
+                    <ul class="nav flex-column">
+                        <li class="nav-item"><a class="nav-link" href="#">All Employees</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#">Generate Codes</a></li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Dashboard Area -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-4 pb-2 mb-4">
+                    <div>
+                        <h1 class="h2 mb-0">Dashboard</h1>
+                        <small class="text-muted">Current Date</small>
+                    </div>
+                    <div class="btn-toolbar mb-2 mb-md-0 gap-2">
+                        <button type="button" class="btn btn-outline-dark rounded-pill px-4">Export Report</button>
+                        <button type="button" class="btn btn-outline-dark rounded-pill px-4">+ Add Employee</button>
+                    </div>
+                </div>
+
+                <!-- Summary Statistic Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="stat-card"></div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="stat-card"></div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="stat-card"></div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="stat-card"></div>
+                    </div>
+                </div>
+
+                <!-- Main Grid Layout -->
+                <div class="row g-4 mb-5">
+                    <div class="col-lg-7">
+                        <div class="card h-100 border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-light border-0 pt-3 px-4">
+                                <h5 class="mb-0">Inventory Overview</h5>
+                            </div>
+                            <div class="card-body p-4" style="min-height: 400px; background-color: #e9e9e9;">
+                                <!-- Content for Inventory table/graph goes here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="card h-100 border-0 shadow-sm rounded-4">
+                            <div class="card-header bg-light border-0 pt-3 px-4">
+                                <h5 class="mb-0">Employees</h5>
+                            </div>
+                            <div class="card-body p-4" style="min-height: 400px; background-color: #e9e9e9;">
+                                <!-- Content for Employee list goes here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <footer id="footer-container" class="border-top py-3 mt-auto">
+        <div class="container-fluid text-center">
+            <small class="text-muted">&copy; 2026 Food Bank Tracker</small>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="navbar.js"></script>
+    <script src="footer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
