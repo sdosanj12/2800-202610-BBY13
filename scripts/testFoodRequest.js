@@ -36,7 +36,7 @@ async function run() {
   const updated = await FoodRequest.findByIdAndUpdate(
     req._id,
     { status: 'approved', approvedBy: anyUser._id, approvedAt: new Date() },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   console.log('Updated status:', updated.status, '| approvedAt:', updated.approvedAt);
 

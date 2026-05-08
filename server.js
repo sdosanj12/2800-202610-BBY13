@@ -287,7 +287,7 @@ app.get('/volunteer/dashboard', (req, res) => {
 
 /* === Food Request API === */
 
-// POST /api/requests — client submits a food request
+// A1: POST /api/requests — client submits a food request
 app.post('/api/requests', (req, res, next) => {
   if (!isValidSession(req)) return res.status(401).json({ error: 'Not authenticated' });
   next();
@@ -295,27 +295,21 @@ app.post('/api/requests', (req, res, next) => {
   const schema = Joi.object({
     householdSize: Joi.number().integer().min(1).max(20).required(),
     dietaryNeeds: Joi.array().items(Joi.string()).max(10).default([]),
-    notes: Joi.string().max(500).allow('').optional(),
-    pickupDate: Joi.date().optional(),
-    pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).optional()
+    notes: Joi.string().max(500).allow('').optional()
   });
 
   const { error, value } = schema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
+  if (error) return res.status(400).json({ error: error.details[0].message });
 
   try {
-    const foodRequest = await FoodRequest.create({
+    const request = await FoodRequest.create({
       clientId: req.user.userId,
       householdSize: value.householdSize,
       dietaryNeeds: value.dietaryNeeds,
       notes: value.notes,
-      pickupDate: value.pickupDate,
-      pickupTime: value.pickupTime,
       status: 'pending'
     });
-    return res.status(201).json(foodRequest);
+    return res.status(201).json({ message: 'Request submitted', request });
   } catch (err) {
     console.error('FoodRequest create error:', err.message);
     return res.status(500).json({ error: 'Server error' });
@@ -369,11 +363,11 @@ app.patch('/api/requests/:id/approve', sessionValidation, adminAuthorization, as
         approvedBy: req.user.userId,
         approvedAt: new Date()
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updated) return res.status(404).json({ error: 'Request not found' });
-    return res.status(200).json(updated);
+    return res.status(200).json({ message: 'Request approved', request: updated });
   } catch (err) {
     console.error('Approve error:', err.message);
     return res.status(500).json({ error: 'Server error' });
@@ -400,11 +394,11 @@ app.patch('/api/requests/:id/deny', sessionValidation, adminAuthorization, async
         approvedBy: req.user.userId,
         approvedAt: new Date()
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updated) return res.status(404).json({ error: 'Request not found' });
-    return res.status(200).json(updated);
+    return res.status(200).json({ message: 'Request denied', request: updated });
   } catch (err) {
     console.error('Deny error:', err.message);
     return res.status(500).json({ error: 'Server error' });
@@ -430,7 +424,7 @@ app.post('/api/inventory', sessionValidation, adminAuthorization, async (req, re
 
   try {
     const item = await InventoryItem.create({ ...value, addedBy: req.user.userId });
-    return res.status(201).json(item);
+    return res.status(201).json({ message: 'Item added', item });
   } catch (err) {
     console.error('Inventory create error:', err.message);
     return res.status(500).json({ error: 'Server error' });
@@ -451,7 +445,7 @@ app.get('/api/inventory', sessionValidation, async (req, res) => {
 
     const items = await InventoryItem.find(filter)
       .populate('addedBy', 'username')
-      .sort({ expiryDate: 1 });
+      .sort({ expiryDate: 1, name: 1 });
 
     return res.status(200).json({ count: items.length, items });
   } catch (err) {
@@ -489,13 +483,13 @@ app.patch('/api/inventory/:id', sessionValidation, adminAuthorization, async (re
   if (error) return res.status(400).json({ error: error.details[0].message });
 
   try {
-    const updated = await InventoryItem.findByIdAndUpdate(
-      req.params.id,
-      value,
-      { new: true, runValidators: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Item not found' });
-    return res.status(200).json(updated);
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    Object.assign(item, value);
+    await item.save();
+
+    return res.status(200).json({ message: 'Item updated', item });
   } catch (err) {
     console.error('Inventory update error:', err.message);
     return res.status(500).json({ error: 'Server error' });
@@ -510,6 +504,56 @@ app.delete('/api/inventory/:id', sessionValidation, adminAuthorization, async (r
     return res.status(200).json({ message: 'Item deleted', deletedId: deleted._id });
   } catch (err) {
     console.error('Inventory delete error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* === User Preferences API (Pop-Up Challenge) === */
+
+// C1: GET /api/user/preferences — returns firstTimeMode + hintsSeen
+app.get('/api/user/preferences', sessionValidation, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('firstTimeMode hintsSeen');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.status(200).json({
+      firstTimeMode: user.firstTimeMode,
+      hintsSeen: user.hintsSeen
+    });
+  } catch (err) {
+    console.error('Get preferences error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// C2: PATCH /api/user/preferences — toggle firstTimeMode OR add a hint to hintsSeen
+app.patch('/api/user/preferences', sessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    firstTimeMode: Joi.boolean(),
+    dismissHint: Joi.string().min(1).max(100)
+  }).xor('firstTimeMode', 'dismissHint');
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const update = value.firstTimeMode !== undefined
+      ? { $set: { firstTimeMode: value.firstTimeMode } }
+      : { $addToSet: { hintsSeen: value.dismissHint } };
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      update,
+      { returnDocument: 'after', runValidators: true }
+    ).select('firstTimeMode hintsSeen');
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json({
+      message: 'Preferences updated',
+      preferences: { firstTimeMode: user.firstTimeMode, hintsSeen: user.hintsSeen }
+    });
+  } catch (err) {
+    console.error('Update preferences error:', err.message);
     return res.status(500).json({ error: 'Server error' });
   }
 });

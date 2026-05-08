@@ -1,0 +1,16 @@
+$kind: http-request
+name: LoginRequest
+url: http://localhost:3001/api/auth/login
+method: POST
+body:
+  type: json
+  content: |-
+    {
+         "username": "{{Client}}",
+         "password": "{{Password}}"
+       }
+scripts:
+  - type: afterResponse
+    code: pm.environment.set("JWT", pm.response.json().token);
+    language: text/javascript
+order: 1778048148258

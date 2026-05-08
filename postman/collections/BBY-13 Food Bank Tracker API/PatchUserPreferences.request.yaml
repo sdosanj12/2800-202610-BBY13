@@ -1,0 +1,18 @@
+$kind: http-request
+name: PatchUserPreferences
+url: http://localhost:3001/api/user/preferences
+method: PATCH
+auth:
+  credentials:
+    token: "{{JWT}}"
+  type: bearer
+body:
+  type: json
+  content: '{ "dismissHint": "{{HINT}}" }'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("hint added", () => pm.expect(pm.response.json().preferences.hintsSeen).to.include('dashboard-welcome'));
+    language: text/javascript
+order: 14

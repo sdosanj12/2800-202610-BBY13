@@ -1,0 +1,17 @@
+$kind: http-request
+name: InventoryRequest
+url: http://localhost:3001/api/inventory
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "name": "Canned Black Beans",
+      "category": "canned",
+      "quantity": 50,
+      "unit": "cans",
+      "expiryDate": "2026-12-31",
+      "storageLocation": "shelf",
+      "notes": "Donated by community drive"
+    }
+order: 3200350588098468

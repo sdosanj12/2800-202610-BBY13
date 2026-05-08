@@ -1,0 +1,22 @@
+$kind: http-request
+name: GetMyRequests
+url: http://localhost:3001/api/requests/me
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const body = pm.response.json();
+
+      pm.test("count >= 1", () => pm.expect(body.count).to.be.at.least(1));
+
+      pm.test("first is pending", () =>
+      pm.expect(body.requests[0].status).to.equal('pending'));
+    language: text/javascript
+order: 3
