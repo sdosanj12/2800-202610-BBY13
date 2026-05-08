@@ -172,7 +172,7 @@ app.post('/submitUser', async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000
     });
 
-    res.render('submitUser');
+    res.redirect('/onboarding');
   } catch (err) {
     if (err.code === 11000) {
       const field = Object.keys(err.keyPattern)[0];
@@ -266,6 +266,32 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/logout', (req, res) => {
   res.clearCookie('token');
   res.render('loggedout');
+});
+
+app.get('/onboarding', sessionValidation, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      res.clearCookie('token');
+      return res.redirect('/login');
+    }
+
+    const dashboardRole = user.roles.includes('admin') ? 'admin'
+      : user.roles.includes('volunteer') ? 'volunteer'
+      : 'client';
+
+    if (user.firstTimeMode === false || user.hintsSeen.includes('onboarding-complete')) {
+      return res.redirect(`/${dashboardRole}/dashboard`);
+    }
+
+    res.render('onboarding', {
+      username: user.username,
+      dashboardRole
+    });
+  } catch (err) {
+    console.error('Onboarding load error:', err.message);
+    res.status(500).render('errorMessage', { error: 'Could not load onboarding' });
+  }
 });
 
 /* === Protected routes === */
