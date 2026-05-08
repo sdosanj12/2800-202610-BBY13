@@ -1,0 +1,19 @@
+$kind: http-request
+name: UserRequestTest
+url: http://localhost:3001/api/auth/login
+method: POST
+body:
+  type: json
+  content: |-
+    {
+         "username": "{{Client}}",
+         "password": "{{Password}}"
+       }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("returns token", () => pm.expect(pm.response.json()).to.have.property('token'));
+      pm.environment.set("token", pm.response.json().token);
+    language: text/javascript
+order: 1778048148258

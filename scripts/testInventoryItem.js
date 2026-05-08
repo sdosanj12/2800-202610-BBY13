@@ -35,7 +35,7 @@ async function run() {
   const lowStock = await InventoryItem.findByIdAndUpdate(
     item._id,
     { quantity: 3 },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   console.log('Updated to 3 — status:', lowStock.status, '(expect low-stock)');
 
@@ -43,7 +43,7 @@ async function run() {
   const outOfStock = await InventoryItem.findByIdAndUpdate(
     item._id,
     { quantity: 0 },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   console.log('Updated to 0 — status:', outOfStock.status, '(expect out-of-stock)');
 

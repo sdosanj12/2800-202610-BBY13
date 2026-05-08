@@ -1,0 +1,20 @@
+$kind: http-request
+name: GetLowStock
+url: http://localhost:3001/api/inventory/low-stock
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const ids = pm.response.json().items.map(i => i._id);
+
+      pm.test("includes our item", () =>
+      pm.expect(ids).to.include(pm.environment.get("inventoryItemId")));
+    language: text/javascript
+order: 9
