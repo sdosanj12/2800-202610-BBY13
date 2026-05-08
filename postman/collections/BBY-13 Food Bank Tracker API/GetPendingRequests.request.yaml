@@ -1,0 +1,20 @@
+$kind: http-request
+name: GetPendingRequests
+url: http://localhost:3001/api/requests/pending
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const body = pm.response.json();
+
+      pm.test("clientId populated", () =>
+      pm.expect(body.requests[0].clientId).to.have.property('username'));
+    language: text/javascript
+order: 5

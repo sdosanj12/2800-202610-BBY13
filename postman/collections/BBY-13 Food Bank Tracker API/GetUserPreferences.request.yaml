@@ -1,0 +1,23 @@
+$kind: http-request
+name: GetUserPreferences
+url: http://localhost:3001/api/user/preferences
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const body = pm.response.json();
+
+      pm.test("has firstTimeMode", () =>
+      pm.expect(body).to.have.property('firstTimeMode'));
+
+      pm.test("hintsSeen is array", () =>
+      pm.expect(body.hintsSeen).to.be.an('array'));
+    language: text/javascript
+order: 13

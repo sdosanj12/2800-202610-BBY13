@@ -1,0 +1,18 @@
+$kind: http-request
+name: GetInventory
+url: http://localhost:3001/api/inventory
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      pm.test("count >= 1", () =>
+      pm.expect(pm.response.json().count).to.be.at.least(1));
+    language: text/javascript
+order: 7

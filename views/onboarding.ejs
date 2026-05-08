@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Food Bank Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .step-anim { animation: fadeIn 0.35s ease-out; }
+  </style>
+</head>
+<body class="bg-stone-50 min-h-screen flex items-center justify-center px-4 py-10">
+
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 sm:p-10">
+
+    <!-- Step 1 -->
+    <div id="step-1" class="step step-anim text-center">
+      <div class="mx-auto w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-4xl mb-6">🍎</div>
+      <h2 class="text-2xl font-bold text-slate-900 mb-3">Welcome, <%= username %>!</h2>
+      <p class="text-slate-600 leading-relaxed mb-8">Food Bank Tracker helps you get food for your family with just a few taps.</p>
+      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="step-2" class="step step-anim text-center hidden">
+      <div class="mx-auto w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-4xl mb-6">📋</div>
+      <h2 class="text-2xl font-bold text-slate-900 mb-3">Submit food requests</h2>
+      <p class="text-slate-600 leading-relaxed mb-8">Tell us your household size and dietary needs. We'll prepare a package tailored to your family.</p>
+      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="step-3" class="step step-anim text-center hidden">
+      <div class="mx-auto w-20 h-20 rounded-full bg-sky-100 flex items-center justify-center text-4xl mb-6">⏰</div>
+      <h2 class="text-2xl font-bold text-slate-900 mb-3">Track your requests</h2>
+      <p class="text-slate-600 leading-relaxed mb-8">See the status of all your requests and find your pickup time all in one place.</p>
+      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="step-4" class="step step-anim text-center hidden">
+      <div class="mx-auto w-20 h-20 rounded-full bg-rose-100 flex items-center justify-center text-4xl mb-6">🚀</div>
+      <h2 class="text-2xl font-bold text-slate-900 mb-3">Ready to get started?</h2>
+      <p class="text-slate-600 leading-relaxed mb-8">Visit your dashboard to submit your first food request. We're here to help.</p>
+      <button onclick="completeOnboarding()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Get Started</button>
+    </div>
+
+    <!-- Step dots -->
+    <div class="flex justify-center items-center gap-2 mt-8">
+      <span data-dot="1" class="dot h-2 rounded-full bg-slate-900 w-6 transition-all duration-300"></span>
+      <span data-dot="2" class="dot h-2 rounded-full bg-slate-300 w-2 transition-all duration-300"></span>
+      <span data-dot="3" class="dot h-2 rounded-full bg-slate-300 w-2 transition-all duration-300"></span>
+      <span data-dot="4" class="dot h-2 rounded-full bg-slate-300 w-2 transition-all duration-300"></span>
+    </div>
+
+    <!-- Skip -->
+    <div class="text-center mt-6">
+      <button onclick="skipOnboarding()" class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Skip</button>
+    </div>
+  </div>
+
+  <script>
+    const dashboardRole = <%- JSON.stringify(dashboardRole) %>;
+    const dashboardUrl = `/${dashboardRole}/dashboard`;
+    const totalSteps = 4;
+    let currentStep = 1;
+
+    function showStep(n) {
+      for (let i = 1; i <= totalSteps; i++) {
+        const el = document.getElementById(`step-${i}`);
+        if (i === n) {
+          el.classList.remove('hidden');
+          // Restart animation
+          el.classList.remove('step-anim');
+          void el.offsetWidth;
+          el.classList.add('step-anim');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+      document.querySelectorAll('.dot').forEach((dot) => {
+        const i = Number(dot.dataset.dot);
+        if (i === n) {
+          dot.classList.remove('bg-slate-300', 'w-2');
+          dot.classList.add('bg-slate-900', 'w-6');
+        } else {
+          dot.classList.remove('bg-slate-900', 'w-6');
+          dot.classList.add('bg-slate-300', 'w-2');
+        }
+      });
+    }
+
+    function nextStep() {
+      if (currentStep < totalSteps) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    }
+
+    async function completeOnboarding() {
+      try {
+        await fetch('/api/user/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ dismissHint: 'onboarding-complete' })
+        });
+      } catch (err) {
+        console.error('Failed to mark onboarding complete:', err);
+      }
+      window.location.href = dashboardUrl;
+    }
+
+    async function skipOnboarding() {
+      try {
+        await fetch('/api/user/preferences', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ firstTimeMode: false })
+        });
+      } catch (err) {
+        console.error('Failed to skip onboarding:', err);
+      }
+      window.location.href = dashboardUrl;
+    }
+  </script>
+</body>
+</html>

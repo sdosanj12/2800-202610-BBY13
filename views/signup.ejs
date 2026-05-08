@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign Up</title>
+</head>
+<body>
+  <h1>Sign Up</h1>
+  <form action="/submitUser" method="POST">
+    <input name="username" placeholder="Username" required>
+    <input name="email" type="email" placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <select name="user_type">
+      <option value="client">Client</option>
+      <option value="volunteer">Volunteer</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button type="submit">Sign Up</button>
+  </form>
+  <p><a href="/login">Already have an account? Login</a></p>
+</body>
+</html>

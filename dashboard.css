@@ -1,0 +1,50 @@
+/* Sidebar Styling */
+.sidebar {
+  min-height: 100vh;
+  font-family: "Lexend Deca", sans-serif;
+}
+
+.sidebar .nav-link {
+  font-weight: 500;
+  color: #333;
+  padding: 0.5rem 1rem;
+}
+
+.sidebar .nav-link.active {
+  color: #000;
+  background-color: #dee2e6;
+}
+
+.sidebar-heading {
+  font-size: 0.75rem;
+  letter-spacing: 0.05rem;
+}
+
+/* Dashboard Component Styling */
+.stat-card {
+  background-color: #e0e0e0;
+  height: 180px;
+  border-radius: 20px;
+  width: 100%;
+}
+
+.card {
+  overflow: hidden;
+}
+
+.card-header {
+  border-bottom: 1px solid #ccc !important;
+}
+
+/* Custom rounded corners for main layout containers */
+.rounded-4 {
+  border-radius: 1.5rem !important;
+}
+
+/* Sticky behavior for sidebar on desktop */
+@media (min-width: 768px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+  }
+}

@@ -1,0 +1,21 @@
+$kind: http-request
+name: PatchInventoryLowStock
+url: http://localhost:3001/api/inventory/{{inventoryItemId}}
+method: PATCH
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+body:
+  type: json
+  content: '{ "quantity": 3 }'
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      pm.test("status now low-stock", () =>
+      pm.expect(pm.response.json().item.status).to.equal('low-stock'));
+    language: text/javascript
+order: 8
