@@ -1,0 +1,553 @@
+/* ================================================================
+   style.css — Food Bank Tracker: Login Page
+   Matches the app's existing theme:
+     - Dark navy navbar
+     - White page background
+     - Light grey bordered card
+     - Clean, minimal typography
+     - Navy blue as the primary action colour
+
+   Structure:
+     1. CSS Variables
+     2. Reset / Base
+     3. Navbar
+     4. Page Layout
+     5. Card
+     6. Card Header
+     7. Form Groups & Labels
+     8. Inputs
+     9. Password Toggle
+    10. Extras Row (checkbox + forgot link)
+    11. Submit Button
+    12. Server Error Banner
+    13. Card Footer Text
+    14. Site Footer
+    15. Validation Error State
+    16. Responsive (mobile)
+================================================================ */
+
+
+/* ── 1. CSS VARIABLES ─────────────────────────────────────────── */
+:root {
+  /* Brand colours — pulled from the navy in the screenshot */
+  --color-navy:        #1a3a5c;   /* navbar background              */
+  --color-navy-dark:   #142d47;   /* navbar hover / button hover    */
+  --color-navy-light:  #2a5080;   /* button hover lighter variant   */
+
+  /* Page / card colours */
+  --color-bg:          #f5f6f8;   /* light grey page background     */
+  --color-card:        #ffffff;   /* card surface                   */
+  --color-card-border: #dde1e7;   /* card outline (light grey)      */
+
+  /* Text */
+  --color-text:        #1a1a2e;   /* dark, almost-black             */
+  --color-muted:       #6b7280;   /* secondary text / placeholders  */
+  --color-link:        #1a3a5c;   /* link colour = navy             */
+
+  /* Inputs */
+  --color-input-bg:     #ffffff;
+  --color-input-border: #d1d5db;
+  --color-input-focus:  #1a3a5c;  /* navy focus ring                */
+
+  /* Feedback */
+  --color-error:        #dc2626;  /* red for validation errors      */
+  --color-error-bg:     #fef2f2;
+  --color-error-border: #fca5a5;
+
+  /* Success (not used here but good to have) */
+  --color-success:      #16a34a;
+
+  /* Typography */
+  --font-main: 'Inter', sans-serif;
+
+  /* Spacing scale */
+  --space-xs:   0.375rem;  /*  6px */
+  --space-sm:   0.625rem;  /* 10px */
+  --space-md:   1rem;      /* 16px */
+  --space-lg:   1.5rem;    /* 24px */
+  --space-xl:   2rem;      /* 32px */
+
+  /* Radii */
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  8px;
+
+  /* Transitions */
+  --transition: 0.15s ease;
+}
+
+
+/* ── 2. RESET / BASE ─────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;  /* pushes footer to the bottom */
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+
+/* ── 3. NAVBAR ───────────────────────────────────────────────── */
+/*
+   Dark navy bar across the top — exact match to the screenshot.
+*/
+.navbar {
+  background-color: var(--color-navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-xl);
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  /* Subtle bottom shadow to separate from page content */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* "Food Bank Tracker" brand text on the left */
+.nav-brand {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.nav-brand:hover {
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+/* Nav links list on the right */
+.nav-links {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.nav-links a {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.nav-links a:hover {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+/* The current page link (Login) appears fully white and bold */
+.nav-links a.nav-active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+
+/* ── 4. PAGE LAYOUT ──────────────────────────────────────────── */
+/*
+   flex: 1 makes the main section grow to fill the space
+   between the navbar and footer, keeping the footer at the bottom.
+*/
+.page-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;    /* center the card horizontally */
+  align-items: flex-start;    /* align to the top (not vertically centered) */
+  padding: var(--space-xl) var(--space-md);
+}
+
+
+/* ── 5. CARD ─────────────────────────────────────────────────── */
+/*
+   Matches the white bordered card in the app screenshot.
+*/
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-card);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+
+/* ── 6. CARD HEADER ──────────────────────────────────────────── */
+.card-header {
+  margin-bottom: var(--space-xl);
+}
+
+/* Matches the "Page Heading" style in the app — large, dark, left-aligned */
+.card-title {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: var(--space-md);
+}
+
+/* Thin horizontal rule under the heading — visible in the screenshot */
+.card-divider {
+  border: none;
+  border-top: 1px solid var(--color-card-border);
+}
+
+
+/* ── 7. FORM GROUPS & LABELS ─────────────────────────────────── */
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: var(--space-xs);
+}
+
+/* Error message under the input — hidden until JS adds text */
+.form-error {
+  display: none;
+  font-size: 0.8125rem;
+  color: var(--color-error);
+  margin-top: var(--space-xs);
+}
+
+
+/* ── 8. INPUTS ───────────────────────────────────────────────── */
+/* Wrapper lets us layer the toggle button inside the password input */
+.input-wrapper {
+  position: relative;
+}
+
+.form-input {
+  width: 100%;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  padding: 0.625rem 0.875rem;
+  outline: none;
+  transition:
+    border-color var(--transition),
+    box-shadow   var(--transition);
+}
+
+/* Extra right padding so text doesn't sit under the show/hide button */
+#password {
+  padding-right: 2.75rem;
+}
+
+.form-input::placeholder {
+  color: var(--color-muted);
+}
+
+/* Blue focus ring — professional and accessible */
+.form-input:focus {
+  border-color: var(--color-input-focus);
+  box-shadow: 0 0 0 3px rgba(26, 58, 92, 0.12);
+}
+
+/* Fix browser autofill turning the input yellow */
+.form-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
+  -webkit-text-fill-color: var(--color-text);
+}
+
+
+/* ── 9. PASSWORD TOGGLE ──────────────────────────────────────── */
+.toggle-password {
+  position: absolute;
+  right: 0.625rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition);
+}
+
+.toggle-password:hover {
+  color: var(--color-text);
+}
+
+
+/* ── 10. EXTRAS ROW (checkbox + forgot link) ─────────────────── */
+.form-extras {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xl);
+  font-size: 0.875rem;
+}
+
+/* Custom checkbox */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Hide the native checkbox */
+.checkbox-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Our styled square */
+.checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-input-border);
+  border-radius: 3px;
+  background: var(--color-input-bg);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background     var(--transition),
+    border-color   var(--transition);
+}
+
+/* When the checkbox is checked: navy fill + tick mark */
+.checkbox-label input:checked + .checkbox-custom {
+  background: var(--color-navy);
+  border-color: var(--color-navy);
+}
+
+.checkbox-label input:checked + .checkbox-custom::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 7px;
+  border: 1.5px solid #ffffff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+.link-subtle {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  transition: color var(--transition);
+}
+
+.link-subtle:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+
+/* ── 11. SUBMIT BUTTON ───────────────────────────────────────── */
+.btn-submit {
+  width: 100%;
+  background: var(--color-navy);
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition:
+    background  var(--transition),
+    transform   var(--transition);
+  position: relative;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: var(--color-navy-dark);
+}
+
+.btn-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner — hidden until JS adds the .loading class */
+.btn-spinner {
+  display: none;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+}
+
+.btn-submit.loading .btn-spinner {
+  display: block;
+  animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+
+/* ── 12. SERVER ERROR BANNER ─────────────────────────────────── */
+/*
+   Rendered by EJS when Express passes { error: "..." }.
+   Sits below the submit button.
+*/
+.server-error {
+  margin-top: var(--space-md);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.875rem;
+  padding: 0.625rem var(--space-md);
+  text-align: center;
+}
+
+
+/* ── 13. CARD FOOTER TEXT ────────────────────────────────────── */
+.card-footer-text {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin-top: var(--space-lg);
+}
+
+.link-accent {
+  color: var(--color-navy);
+  font-weight: 500;
+  margin-left: 0.2rem;
+}
+
+.link-accent:hover {
+  text-decoration: underline;
+}
+
+
+/* ── 14. SITE FOOTER ─────────────────────────────────────────── */
+/*
+   Thin footer row at the very bottom — matches the app screenshot.
+*/
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-xl);
+  border-top: 1px solid var(--color-card-border);
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  background: #ffffff;
+}
+
+.footer-links {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.footer-links a {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.footer-links a:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+
+/* ── 15. VALIDATION ERROR STATE ──────────────────────────────── */
+/*
+   When JS adds .has-error to a .form-group,
+   the input inside gets a red border.
+*/
+.form-group.has-error .form-input {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+
+/* ── 16. RESPONSIVE (MOBILE) ─────────────────────────────────── */
+@media (max-width: 600px) {
+  /* Collapse the nav links on small screens */
+  .nav-links {
+    gap: var(--space-md);
+  }
+
+  .nav-links a {
+    font-size: 0.8125rem;
+  }
+
+  /* Shrink card padding */
+  .card {
+    padding: var(--space-lg);
+  }
+
+  /* Stack the extras row (remember me / forgot password) */
+  .form-extras {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+
+  /* Stack the footer */
+  .site-footer {
+    flex-direction: column;
+    gap: var(--space-sm);
+    text-align: center;
+  }
+
+  .footer-links {
+    gap: var(--space-md);
+  }
+}
