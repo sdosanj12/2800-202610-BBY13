@@ -1,0 +1,15 @@
+:root {
+  /* CSS HEX */
+  --alabaster-grey: #ccdbdcff;
+  --frosted-blue: #9ad1d4ff;
+  --frosted-blue-2: #80ced7ff;
+  --cerulean: #007ea7ff;
+  --deep-space-blue: #003249ff;
+
+  /* CSS HSL */
+  --alabaster-grey-hsl: hsla(184, 19%, 83%, 1);
+  --frosted-blue-hsl: hsla(183, 40%, 72%, 1);
+  --frosted-blue-2-hsl: hsla(186, 52%, 67%, 1);
+  --cerulean-hsl: hsla(195, 100%, 33%, 1);
+  --deep-space-blue-hsl: hsla(199, 100%, 14%, 1);
+}
