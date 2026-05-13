@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>View Order Status | Food Bank Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header id="navbar-container"></header>
+
+    <main class="container">
+        <section class="card">
+            <h1>Request Status Dashboard</h1>
+            <p>Review the status of food requests across Vancouver hubs.</p>
+            
+            <table id="status-table" style="width:100%; border-collapse: collapse; margin-top: 20px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ddd; text-align: left;">
+                        <th>Reference ID</th>
+                        <th>Location</th>
+                        <th>Size</th>
+                        <th>Dietary Needs</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="status-body">
+                    </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+        async function loadStatuses() {
+            const response = await fetch('/api/requests');
+            const requests = await response.json();
+            const tableBody = document.getElementById('status-body');
+
+            tableBody.innerHTML = requests.map(req => `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 10px;">#${req._id.slice(-5).toUpperCase()}</td>
+                    <td>${req.location}</td>
+                    <td>${req.householdSize}</td>
+                    <td>${req.dietaryRestrictions.join(', ') || 'None'}</td>
+                    <td><span class="status-badge">${req.status}</span></td>
+                </tr>
+            `).join('');
+        }
+        window.onload = loadStatuses;
+    </script>
+    <script src="navbar.js"></script>
+    <script src="footer.js"></script>
+</body>
+    <footer class="footer">
+        <div id="footer-container"></div>
+    </footer>
+</html>
