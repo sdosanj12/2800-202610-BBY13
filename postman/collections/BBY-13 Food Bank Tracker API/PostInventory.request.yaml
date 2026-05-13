@@ -1,0 +1,34 @@
+$kind: http-request
+name: PostInventory
+url: http://localhost:3001/api/inventory
+method: POST
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+body:
+  type: json
+  content: |-
+    {
+      "name": "Canned Beans",
+      "category": "canned",
+      "quantity": 50,
+      "unit": "cans",
+      "storageLocation": "shelf"
+    }
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("201 Created", () => pm.response.to.have.status(201));
+
+      const body = pm.response.json();
+
+      pm.test("status in-stock", () =>
+      pm.expect(body.item.status).to.equal('in-stock'));
+
+      if (body.item) {
+        pm.environment.set("inventoryItemId", body.item._id);
+      }
+    language: text/javascript
+order: 6

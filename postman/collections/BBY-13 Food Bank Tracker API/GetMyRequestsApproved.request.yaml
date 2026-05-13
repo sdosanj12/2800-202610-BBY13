@@ -1,0 +1,23 @@
+$kind: http-request
+name: GetMyRequestsApproved
+url: http://localhost:3001/api/requests/me
+method: GET
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const found = pm.response.json().requests.find(r => r._id ===
+      pm.environment.get("requestId"));
+
+      pm.test("our request is approved", () =>
+      pm.expect(found.status).to.equal('approved'));
+
+      pm.test("pickup date set", () => pm.expect(found.pickupDate).to.exist);
+    language: text/javascript
+order: 12

@@ -1,0 +1,30 @@
+$kind: http-request
+name: ApproveRequest
+url: http://localhost:3001/api/requests/{{requestId}}/approve
+method: PATCH
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+body:
+  type: json
+  content: |-
+    {
+      "pickupDate": "2026-05-15",
+      "pickupTime": "10:30"
+    }
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+
+      const body = pm.response.json();
+
+      pm.test("status approved", () =>
+      pm.expect(body.request.status).to.equal('approved'));
+
+      pm.test("approvedAt set", () =>
+      pm.expect(body.request.approvedAt).to.exist);
+    language: text/javascript
+order: 10

@@ -1,0 +1,36 @@
+$kind: http-request
+name: FoodRequest
+url: http://localhost:3001/api/requests
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "householdSize": 4,
+      "dietaryNeeds": ["gluten-free"],
+      "notes": "Morning pickup preferred"
+    }
+auth:
+  credentials:
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+scripts:
+  - type: afterResponse
+    code: >-
+      pm.test("201 Created", () => pm.response.to.have.status(201));
+
+      const body = pm.response.json();
+
+      pm.test("returns request", () =>
+      pm.expect(body.request).to.have.property('_id'));
+
+      pm.test("status pending", () =>
+      pm.expect(body.request.status).to.equal('pending'));
+
+
+      if (body.request) {
+        pm.environment.set("requestId", body.request._id);
+      }
+    language: text/javascript
+order: 3450765315197326

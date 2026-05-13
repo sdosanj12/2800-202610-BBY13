@@ -3,6 +3,8 @@ node_modules/
 
 # Environment variables (NEVER COMMIT .env OR ANYTHING RELATED TO IT)
 .env
+postman/environments/
+postman/globals/
 
 # Logs
 *.log
