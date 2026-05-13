@@ -7,10 +7,14 @@ const Joi = require('joi');
 const mongoSanitizer = require('mongo-sanitizer').default;
 const cookieParser = require('cookie-parser');
 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
 const { connectDB } = require('./databaseConnection');
 const User = require('./models/User');
 const FoodRequest = require('./models/FoodRequest');
 const InventoryItem = require('./models/InventoryItem');
+
+const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
 
@@ -300,6 +304,9 @@ app.use('/client', sessionValidation);
 app.get('/client/dashboard', (req, res) => {
   res.render('client-dashboard', { username: req.user.username });
 });
+app.get('/client/ai-request', (req, res) => {
+  res.render('ai-request');
+});
 
 app.use('/admin', sessionValidation, adminAuthorization);
 app.get('/admin/dashboard', (req, res) => {
@@ -581,6 +588,100 @@ app.patch('/api/user/preferences', sessionValidation, async (req, res) => {
   } catch (err) {
     console.error('Update preferences error:', err.message);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* === AI Smart Food Request Assistant === */
+
+const AI_SYSTEM_PROMPT = `You are a food bank intake assistant. Your job is to parse a client's natural-language description of their household into structured data for a food request.
+
+Rules:
+- Output ONLY valid JSON matching this exact schema: { "householdSize": integer 1-20, "dietaryNeeds": array of strings, "notes": string, "confidence": "high"|"medium"|"low", "warnings": array of strings }
+- Do NOT output any markdown, prose, or explanation — ONLY the JSON object.
+- householdSize: count every person in the household including the speaker. If unclear, default to 1 and add a warning "Household size unclear, defaulted to 1".
+- dietaryNeeds: specific, lowercase, short phrases like "diabetic", "halal", "no pork", "gluten-free", "peanut allergy", "vegetarian". Maximum 10 items, each max 50 characters.
+- notes: only context that staff needs to know that is NOT already captured in householdSize or dietaryNeeds. Do not repeat household size or dietary info here. Max 500 characters. Leave empty string if nothing relevant.
+- confidence: set to "high" if the description is clear and specific. Set to "medium" if some ambiguity exists but a reasonable interpretation is possible. Set to "low" if the description is vague, very short, or largely ambiguous.
+- warnings: add warnings for any of: medical claims that need staff attention, requests for non-food items (diapers, clothes, etc — note that baby formula IS food), urgent/crisis language suggesting immediate danger, anything outside normal food bank scope. Each warning should be a short, clear sentence.
+- NEVER invent details not present in or clearly implied by the description.
+- If the description is in a language other than English, do your best to parse it and add a warning noting the language.`;
+
+const aiOutputSchema = Joi.object({
+  householdSize: Joi.number().integer().min(1).max(20).required(),
+  dietaryNeeds: Joi.array().items(Joi.string().max(50)).max(10).default([]),
+  notes: Joi.string().max(500).allow('').default(''),
+  confidence: Joi.string().valid('high', 'medium', 'low').required(),
+  warnings: Joi.array().items(Joi.string()).default([])
+});
+
+// POST /api/ai/parse-request — AI parses natural-language description into structured request data
+app.post('/api/ai/parse-request', sessionValidation, async (req, res) => {
+  const inputSchema = Joi.object({
+    description: Joi.string().min(10).max(2000).required()
+  });
+
+  const { error, value } = inputSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  try {
+    // Card 1C: Fetch previous requests for personalization
+    const previousRequests = await FoodRequest.find({ clientId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select('householdSize dietaryNeeds notes')
+      .lean();
+
+    let prompt = AI_SYSTEM_PROMPT;
+    const usedPreviousRequests = previousRequests.length > 0;
+
+    if (usedPreviousRequests) {
+      prompt += `\n\nFor context, this user's previous requests had: ${JSON.stringify(previousRequests)} Use this only to resolve ambiguity, not to override what they say now.`;
+    }
+
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: value.description }] }],
+      systemInstruction: { parts: [{ text: prompt }] }
+    });
+
+    let rawText = result.response.text();
+
+    // Strip markdown code fences if present
+    rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (parseErr) {
+      console.error('AI returned invalid JSON:', rawText);
+      return res.status(502).json({ error: 'AI returned unexpected response, please try rephrasing your description.' });
+    }
+
+    const { error: validationError, value: validatedOutput } = aiOutputSchema.validate(parsed, { stripUnknown: true });
+    if (validationError) {
+      console.error('AI output failed validation:', validationError.details, 'Raw:', parsed);
+      return res.status(502).json({ error: 'AI returned unexpected response, please try rephrasing your description.' });
+    }
+
+    return res.status(200).json({
+      parsed: validatedOutput,
+      meta: {
+        model: 'gemini-2.5-flash',
+        usedPreviousRequests
+      }
+    });
+  } catch (err) {
+    console.error('AI parse-request error:', err.message);
+    return res.status(500).json({ error: 'Something went wrong with the AI assistant. Please try again later.' });
   }
 });
 

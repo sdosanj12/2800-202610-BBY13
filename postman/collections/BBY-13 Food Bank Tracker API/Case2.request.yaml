@@ -1,0 +1,15 @@
+$kind: http-request
+name: Case2
+url: http://localhost:3001/api/ai/parse-request
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "description": "We need food please my family is hungry"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{JWT}}"
+order: 3904869371478662

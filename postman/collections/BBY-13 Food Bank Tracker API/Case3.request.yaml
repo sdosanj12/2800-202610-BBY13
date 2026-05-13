@@ -1,0 +1,15 @@
+$kind: http-request
+name: Case3
+url: http://localhost:3001/api/ai/parse-request
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "description": "I have 3 kids and we need diapers, baby formula, and clothes for winter"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{JWT}}"
+order: 4181565596929496

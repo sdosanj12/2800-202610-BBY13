@@ -1,0 +1,15 @@
+$kind: http-request
+name: Case5
+url: http://localhost:3001/api/ai/parse-request
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "description": "Tengo 3 hijos y mi esposo. Somos vegetarianos."
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{JWT}}"
+order: 4409491477372428
