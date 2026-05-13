@@ -1,0 +1,15 @@
+$kind: http-request
+name: Case8
+url: http://localhost:3001/api/ai/parse-request
+method: POST
+body:
+  type: json
+  content: |-
+    {
+      "description": "Same as usual please"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{JWT}}"
+order: 4501516001223453
