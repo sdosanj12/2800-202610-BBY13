@@ -5,7 +5,8 @@
 Extract structured food request data from a client's natural-language description of their household. The AI must return:
 - **householdSize** (integer) — total people in the household
 - **dietaryNeeds** (array) — specific dietary restrictions or allergies
-- **notes** (string) — any extra context for staff
+- **clientNotes** (string) — client's own words/context for staff (formerly `notes`)
+- **staffNotes** (string) — AI-generated professional intake summary for staff
 - **confidence** (enum) — how certain the AI is about the parse
 - **warnings** (array) — flags for staff attention (crisis language, non-food items, etc.)
 
@@ -91,3 +92,36 @@ This feature was developed iteratively using Claude Code as a pair-programming a
 6. Using Claude Code to generate the endpoint, frontend, and documentation while reviewing each piece for correctness and alignment with the existing codebase patterns
 
 The AI was a development tool, not a replacement for human review. Every AI-generated output goes through Joi validation server-side, and the user always reviews and edits the parsed data before submitting.
+
+---
+
+## Staff Intake Notes Prompt (v4)
+
+Split the single `notes` field into two distinct concepts:
+
+```
+- clientNotes: things the client explicitly said that staff should know, NOT repeating householdSize or dietaryNeeds. Max 500 characters.
+
+STAFF NOTES (intake summary): You are also acting as an experienced intake coordinator. Write "staffNotes" as a brief, professional summary that helps staff prepare for this client. Include:
+1. One-line summary of household composition and key dietary considerations
+2. Any priority flags (urgent need, first-time visitor cues, mentions of food insecurity duration)
+3. Operational considerations (cultural/religious dietary requirements, medical conditions affecting food choices, accessibility needs, language)
+4. Non-food asks the client mentioned that staff should address through referrals (note these as "Referral needed: ...")
+5. Anything ambiguous staff should clarify in person
+Format as 2-5 short sentences or bullet points. Be neutral and professional.
+If the input language is not English, note that at the start: "Client communicates in [language]."
+Max 1000 characters for staffNotes.
+```
+
+Three few-shot examples were added to the prompt to demonstrate expected output quality.
+
+### What Changed and Why
+
+- **`notes` split into `clientNotes` + `staffNotes`**: The single `notes` field mixed client voice with AI interpretation. Splitting them gives staff a structured, actionable intake summary (`staffNotes`) while preserving the client's own words separately (`clientNotes`).
+- **Intake coordinator persona**: Adding "you are also acting as an experienced intake coordinator" improved output quality — the AI generates summaries that read like a real intake form rather than a generic description.
+- **Priority flags**: Instructions to flag urgent/crisis cases with "PRIORITY:" at the start of staffNotes so staff can triage at a glance.
+- **Referral flags**: "Referral needed: ..." pattern for non-food requests gives staff clear actionable items instead of vague warnings.
+- **Language identification**: "Client communicates in [language]" at the start of staffNotes helps staff prepare for language accommodation.
+- **Few-shot examples**: Three examples (family with pork restriction, crisis case, Spanish-speaking client with non-food request) dramatically improved consistency and formatting.
+- **Max length increase**: `staffNotes` allows 1000 characters (vs 500 for `clientNotes`) since the intake summary needs more space for structured content.
+- **Backward compatibility**: The `POST /api/requests` endpoint still accepts the legacy `notes` field and maps it to `clientNotes`, so existing API consumers are not broken.
