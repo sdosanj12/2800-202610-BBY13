@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>User Profile | Food Bank Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Lexend+Deca:wght@100..900&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <header id="navbar-container"></header>
+
+    <main class="container">
+        <section class="card">
+            <div class="profile-header">
+                <div>
+                    <h1>Your Profile</h1>
+                    <p>Update your household details to help us better manage inventory for the Vancouver community.</p>
+                </div>
+            </div>
+
+            <form id="user-profile-form">
+                <div class="form-section">
+                    <h3>Household Information</h3>
+                    <label for="household-size">Total Number of People</label>
+                    <select id="household-size" name="household-size" required>
+                        <option value="1">1 (Individual)</option>
+                        <option value="2">2 (Couple/Small Family)</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6+">6 or more</option>
+                    </select>
+                </div>
+
+                <div class="form-section">
+                    <h3>Allergies</h3>
+                    <p>Select any known allergies for members of your household:</p>
+                    <div class="grid-options">
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="peanuts"> Peanuts</label>
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="tree-nuts"> Tree Nuts</label>
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="shellfish"> Shellfish</label>
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="dairy"> Dairy</label>
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="eggs"> Eggs</label>
+                        <label class="checkbox-card"><input type="checkbox" name="allergy" value="soy"> Soy</label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>Dietary Restrictions</h3>
+                    <div class="grid-options">
+                        <label class="checkbox-card"><input type="checkbox" name="diet" value="vegetarian"> Vegetarian</label>
+                        <label class="checkbox-card"><input type="checkbox" name="diet" value="vegan"> Vegan</label>
+                        <label class="checkbox-card"><input type="checkbox" name="diet" value="halal"> Halal</label>
+                        <label class="checkbox-card"><input type="checkbox" name="diet" value="kosher"> Kosher</label>
+                        <label class="checkbox-card"><input type="checkbox" name="diet" value="gluten-free"> Gluten-Free</label>
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 2rem;">
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <button type="button" class="btn-secondary" onclick="window.location.reload()">Cancel</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div id="footer-container"></div>
+    </footer>
+
+    <script src="navbar.js"></script>
+    <script src="footer.js"></script>
+
+</body>
+
+</html>
