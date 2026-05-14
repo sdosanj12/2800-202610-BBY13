@@ -133,6 +133,11 @@ app.get("/", (req, res) => {
   res.render("index");
 });
 
+// food request ejs page
+app.get('/request', (req, res) => {
+    res.render('request'); 
+});
+
 app.get("/about", (req, res) => {
   res.render("about");
 });
@@ -312,6 +317,19 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       .status(500)
       .render("errorMessage", { error: "Could not load onboarding" });
   }
+});
+
+// This looks at the food request form submission
+app.post('/submit-request', (req, res) => {
+    
+    // 1. Capture the data (optional)
+    const formData = req.body; 
+
+    // 2. Create your reference ID
+    const ref = "FB-" + Math.floor(Math.random() * 100000);
+
+    // 3. THE TRIGGER: Send the confirmation page back to the browser
+    res.render('confirmation', { referenceId: ref });
 });
 
 /* === Protected routes === */
