@@ -398,6 +398,16 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
   }
 });
 
+// GET route to fetch all food requests
+app.get('/api/requests', async (req, res) => {
+    try {
+        const requests = await FoodRequest.find().sort({ createdAt: -1 });
+        res.json(requests);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching requests" });
+    }
+});
+
 // PATCH /api/requests/:id/approve — adminapproves a request
 app.patch(
   "/api/requests/:id/approve",
