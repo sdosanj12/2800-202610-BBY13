@@ -13,6 +13,7 @@ const { connectDB } = require('./databaseConnection');
 const User = require('./models/User');
 const FoodRequest = require('./models/FoodRequest');
 const InventoryItem = require('./models/InventoryItem');
+const Notification = require('./models/Notification');
 
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
@@ -400,6 +401,21 @@ app.patch('/api/requests/:id/approve', sessionValidation, adminAuthorization, as
     );
 
     if (!updated) return res.status(404).json({ error: 'Request not found' });
+
+    // Create approval notification for the client
+    try {
+      const pickupDateStr = new Date(value.pickupDate).toLocaleDateString();
+      await Notification.create({
+        userId: updated.clientId,
+        type: 'request-approved',
+        message: `Your food request has been approved. Pickup: ${pickupDateStr} at ${value.pickupTime}.`,
+        relatedId: updated._id,
+        relatedType: 'FoodRequest'
+      });
+    } catch (notifErr) {
+      console.error('Failed to create approval notification:', notifErr.message);
+    }
+
     return res.status(200).json({ message: 'Request approved', request: updated });
   } catch (err) {
     console.error('Approve error:', err.message);
@@ -431,6 +447,21 @@ app.patch('/api/requests/:id/deny', sessionValidation, adminAuthorization, async
     );
 
     if (!updated) return res.status(404).json({ error: 'Request not found' });
+
+    // Create denial notification for the client
+    try {
+      const reason = value.denialReason ? ` Reason: ${value.denialReason}` : '';
+      await Notification.create({
+        userId: updated.clientId,
+        type: 'request-denied',
+        message: `Your food request was not approved.${reason}`,
+        relatedId: updated._id,
+        relatedType: 'FoodRequest'
+      });
+    } catch (notifErr) {
+      console.error('Failed to create denial notification:', notifErr.message);
+    }
+
     return res.status(200).json({ message: 'Request denied', request: updated });
   } catch (err) {
     console.error('Deny error:', err.message);
@@ -519,8 +550,30 @@ app.patch('/api/inventory/:id', sessionValidation, adminAuthorization, async (re
     const item = await InventoryItem.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Item not found' });
 
+    const oldStatus = item.status;
     Object.assign(item, value);
     await item.save();
+
+    // Notify admin users on transition into low-stock or out-of-stock
+    try {
+      const isNowLowOrOut = ['low-stock', 'out-of-stock'].includes(item.status);
+      const wasLowOrOut = ['low-stock', 'out-of-stock'].includes(oldStatus);
+      if (isNowLowOrOut && !wasLowOrOut) {
+        const adminUsers = await User.find({ roles: 'admin' }).select('_id').lean();
+        const notifications = adminUsers.map(u => ({
+          userId: u._id,
+          type: 'low-stock',
+          message: `${item.name} is ${item.status === 'out-of-stock' ? 'out of stock' : 'running low'} (${item.quantity} ${item.unit} remaining).`,
+          relatedId: item._id,
+          relatedType: 'InventoryItem'
+        }));
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications);
+        }
+      }
+    } catch (notifErr) {
+      console.error('Failed to create low-stock notification:', notifErr.message);
+    }
 
     return res.status(200).json({ message: 'Item updated', item });
   } catch (err) {
@@ -682,6 +735,94 @@ app.post('/api/ai/parse-request', sessionValidation, async (req, res) => {
   } catch (err) {
     console.error('AI parse-request error:', err.message);
     return res.status(500).json({ error: 'Something went wrong with the AI assistant. Please try again later.' });
+  }
+});
+
+/* === Notifications API === */
+
+// GET /api/notifications — current user's notifications
+app.get('/api/notifications', sessionValidation, async (req, res) => {
+  try {
+    const filter = { userId: req.user.userId };
+    if (req.query.unreadOnly === 'true') {
+      filter.read = false;
+    }
+
+    let limit = parseInt(req.query.limit, 10);
+    if (isNaN(limit) || limit < 1) limit = 50;
+    if (limit > 100) limit = 100;
+
+    const notifications = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const unreadCount = await Notification.countDocuments({ userId: req.user.userId, read: false });
+
+    return res.status(200).json({ notifications, unreadCount });
+  } catch (err) {
+    console.error('Fetch notifications error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/notifications/unread-count — lightweight badge count
+app.get('/api/notifications/unread-count', sessionValidation, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({ userId: req.user.userId, read: false });
+    return res.status(200).json({ count });
+  } catch (err) {
+    console.error('Unread count error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/notifications/read-all — mark all unread as read
+app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => {
+  try {
+    const result = await Notification.updateMany(
+      { userId: req.user.userId, read: false },
+      { $set: { read: true } }
+    );
+    return res.status(200).json({ updated: result.modifiedCount });
+  } catch (err) {
+    console.error('Read-all error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH /api/notifications/:id/read — mark single notification as read
+app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+    if (notification.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    notification.read = true;
+    await notification.save();
+    return res.status(200).json({ notification });
+  } catch (err) {
+    console.error('Mark read error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /api/notifications/:id — dismiss a notification
+app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+    if (notification.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    await notification.deleteOne();
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('Delete notification error:', err.message);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 

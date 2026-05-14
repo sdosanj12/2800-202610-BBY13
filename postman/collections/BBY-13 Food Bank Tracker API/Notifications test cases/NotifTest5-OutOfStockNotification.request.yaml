@@ -1,0 +1,25 @@
+$kind: http-request
+name: NotifTest5-OutOfStockNotification
+url: 'http://localhost:3001/api/inventory/{{inventoryItemId}}'
+method: PATCH
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+body:
+  type: json
+  content: |-
+    {
+      "quantity": 0
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("status is out-of-stock or low-stock", () => {
+        const status = pm.response.json().item.status;
+        pm.expect(['out-of-stock', 'low-stock']).to.include(status);
+      });
+    language: text/javascript
+order: 14

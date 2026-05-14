@@ -1,0 +1,17 @@
+$kind: http-request
+name: NotifTest4-VerifyNoNewLowStock
+url: 'http://localhost:3001/api/notifications'
+method: GET
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      const lowStockNotifs = pm.response.json().notifications.filter(n => n.type === 'low-stock');
+      pm.test("only 1 low-stock notification", () => pm.expect(lowStockNotifs.length).to.equal(1));
+    language: text/javascript
+order: 13

@@ -1,0 +1,18 @@
+$kind: http-request
+name: NotifTest7-VerifyDeleted
+url: 'http://localhost:3001/api/notifications'
+method: GET
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      const notifId = pm.environment.get("notifId");
+      const found = pm.response.json().notifications.find(n => n._id === notifId);
+      pm.test("deleted notification not in list", () => pm.expect(found).to.be.undefined);
+    language: text/javascript
+order: 19

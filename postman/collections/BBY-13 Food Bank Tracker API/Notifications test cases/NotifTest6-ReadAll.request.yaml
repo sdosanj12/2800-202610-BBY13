@@ -1,0 +1,17 @@
+$kind: http-request
+name: NotifTest6-ReadAll
+url: 'http://localhost:3001/api/notifications/read-all'
+method: PATCH
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("response has property updated", () => pm.expect(pm.response.json()).to.have.property('updated'));
+      pm.test("updated is greater than 0", () => pm.expect(pm.response.json().updated).to.be.above(0));
+    language: text/javascript
+order: 16

@@ -1,0 +1,18 @@
+$kind: http-request
+name: NotifTest9-1-FetchUnreadOnly
+url: 'http://localhost:3001/api/notifications?unreadOnly=true'
+method: GET
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("all notifications are unread", () => {
+        pm.response.json().notifications.forEach(n => pm.expect(n.read).to.equal(false));
+      });
+    language: text/javascript
+order: 22
