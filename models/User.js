@@ -28,10 +28,6 @@ const userSchema = new mongoose.Schema(
     householdSize: {
       type: Number
     },
-    dietaryNeeds: {
-      type: [String],
-      default: []
-    },
     firstTimeMode: {
       type: Boolean,
       default: true
@@ -39,10 +35,25 @@ const userSchema = new mongoose.Schema(
     hintsSeen: {
       type: [String],
       default: []
+    },
+      householdSize: {
+      type: String,
+      default: "1"
+    },
+
+    allergies: {
+      type: [String],
+      default: []
+    },
+
+    dietaryRestrictions: {
+      type: [String],
+      default: []
     }
   },
   { timestamps: true }
 );
+
 
 userSchema.methods.comparePassword = function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);

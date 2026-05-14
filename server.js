@@ -15,6 +15,8 @@ const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
 
+const protect = require("./middleware/auth");
+
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
@@ -38,7 +40,7 @@ const jwt_secret = process.env.JWT_SECRET;
  */
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(mongoSanitizer({ replaceWith: "_" }));
@@ -943,6 +945,113 @@ app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
   } catch (err) {
     console.error('Delete notification error:', err.message);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// SAVE SETTINGS TO USER PROFILE
+app.post("/api/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        householdSize,
+        allergies,
+        dietaryRestrictions
+      },
+      {
+        new: true
+      }
+    );
+
+    res.json({
+      success: true,
+      user: updatedUser
+    });
+
+  } catch (err) {
+
+    console.error("Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+});
+// PROFILE PAGE
+app.get("/profile", protect, async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+      user: {},
+      error: "Failed to load profile"
+    });
+  }
+});
+
+
+// SAVE PROFILE
+app.post("/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    await User.findByIdAndUpdate(req.user._id, {
+
+      householdSize,
+
+      allergies: allergies || [],
+
+      dietaryRestrictions: dietaryRestrictions || []
+
+    });
+
+    const updatedUser =
+      await User.findById(req.user._id);
+
+    res.render("profile", {
+
+      user: updatedUser,
+
+      success: "Profile updated successfully"
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+
+      user: req.user,
+
+      error: "Failed to update profile"
+
+    });
   }
 });
 
