@@ -1,15 +1,16 @@
 $kind: http-request
-name: Case4
+name: AiCase4
 url: http://localhost:3001/api/ai/parse-request
 method: POST
 body:
   type: json
-  content: |-
+  content: >-
     {
       "description": "Please help me my kids haven't eaten in 3 days I'm desperate"
     }
 auth:
-  type: bearer
   credentials:
-    token: "{{JWT}}"
-order: 4341643437323836
+    - key: token
+      value: "{{JWT}}"
+  type: bearer
+order: 152673107656423

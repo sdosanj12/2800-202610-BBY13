@@ -1,0 +1,15 @@
+$kind: http-request
+name: NotifTest7-DeleteNotification
+url: 'http://localhost:3001/api/notifications/{{notifId}}'
+method: DELETE
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("204 No Content", () => pm.response.to.have.status(204));
+    language: text/javascript
+order: 18

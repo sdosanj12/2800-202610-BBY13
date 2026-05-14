@@ -1,0 +1,16 @@
+$kind: http-request
+name: NotifTest1-5-CheckUnreadCount
+url: 'http://localhost:3001/api/notifications/unread-count'
+method: GET
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("count equals 1", () => pm.expect(pm.response.json().count).to.equal(1));
+    language: text/javascript
+order: 5

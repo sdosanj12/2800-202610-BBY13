@@ -1,0 +1,23 @@
+$kind: http-request
+name: NotifTest1-2-ApproveRequest
+url: 'http://localhost:3001/api/requests/{{requestId}}/approve'
+method: PATCH
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+body:
+  type: json
+  content: |-
+    {
+      "pickupDate": "2026-06-01",
+      "pickupTime": "10:00"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("request status equals approved", () => pm.expect(pm.response.json().request.status).to.equal("approved"));
+    language: text/javascript
+order: 2
