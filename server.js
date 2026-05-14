@@ -367,6 +367,8 @@ app.post(
       householdSize: Joi.number().integer().min(1).max(20).required(),
       dietaryNeeds: Joi.array().items(Joi.string()).max(10).default([]),
       notes: Joi.string().max(500).allow("").optional(),
+      clientNotes: Joi.string().max(500).allow("").optional(),
+      staffNotes: Joi.string().max(1000).allow("").optional(),
     });
 
     const { error, value } = schema.validate(req.body);
@@ -377,7 +379,9 @@ app.post(
         clientId: req.user.userId,
         householdSize: value.householdSize,
         dietaryNeeds: value.dietaryNeeds,
-        notes: value.notes,
+        notes: value.notes || "",
+        clientNotes: value.clientNotes || value.notes || "",
+        staffNotes: value.staffNotes || "",
         status: "pending",
       });
       return res.status(201).json({ message: "Request submitted", request });
@@ -763,20 +767,37 @@ app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
 const AI_SYSTEM_PROMPT = `You are a food bank intake assistant. Your job is to parse a client's natural-language description of their household into structured data for a food request.
 
 Rules:
-- Output ONLY valid JSON matching this exact schema: { "householdSize": integer 1-20, "dietaryNeeds": array of strings, "notes": string, "confidence": "high"|"medium"|"low", "warnings": array of strings }
+- Output ONLY valid JSON matching this exact schema: { "householdSize": integer 1-20, "dietaryNeeds": array of strings, "clientNotes": string, "staffNotes": string, "confidence": "high"|"medium"|"low", "warnings": array of strings }
 - Do NOT output any markdown, prose, or explanation — ONLY the JSON object.
 - householdSize: count every person in the household including the speaker. If unclear, default to 1 and add a warning "Household size unclear, defaulted to 1".
 - dietaryNeeds: specific, lowercase, short phrases like "diabetic", "halal", "no pork", "gluten-free", "peanut allergy", "vegetarian". Maximum 10 items, each max 50 characters.
-- notes: only context that staff needs to know that is NOT already captured in householdSize or dietaryNeeds. Do not repeat household size or dietary info here. Max 500 characters. Leave empty string if nothing relevant.
+- clientNotes: things the client explicitly said that staff should know, NOT repeating householdSize or dietaryNeeds. Max 500 characters. Leave empty string if nothing relevant.
 - confidence: set to "high" if the description is clear and specific. Set to "medium" if some ambiguity exists but a reasonable interpretation is possible. Set to "low" if the description is vague, very short, or largely ambiguous.
 - warnings: add warnings for any of: medical claims that need staff attention, requests for non-food items (diapers, clothes, etc — note that baby formula IS food), urgent/crisis language suggesting immediate danger, anything outside normal food bank scope. Each warning should be a short, clear sentence.
 - NEVER invent details not present in or clearly implied by the description.
-- If the description is in a language other than English, do your best to parse it and add a warning noting the language.`;
+- If the description is in a language other than English, do your best to parse it and add a warning noting the language.
+
+STAFF NOTES (intake summary): You are also acting as an experienced intake coordinator. Write "staffNotes" as a brief, professional summary that helps staff prepare for this client. Include:
+1. One-line summary of household composition and key dietary considerations
+2. Any priority flags (urgent need, first-time visitor cues, mentions of food insecurity duration)
+3. Operational considerations (cultural/religious dietary requirements, medical conditions affecting food choices, accessibility needs, language)
+4. Non-food asks the client mentioned that staff should address through referrals (note these as "Referral needed: ...")
+5. Anything ambiguous staff should clarify in person
+Format as 2-5 short sentences or bullet points. Be neutral and professional — no judgments, no assumptions about client's situation. Only include information present in or directly implied by the description.
+If the input language is not English, note that at the start: "Client communicates in [language]."
+Do NOT repeat the householdSize or dietaryNeeds verbatim in staffNotes — these are already structured fields. Instead, reference them as context for the summary.
+Max 1000 characters for staffNotes.
+
+Examples:
+Description: "I have 4 kids and my husband. We don't eat pork." staffNotes: "Family of 6 (2 adults, 4 children). Halal/no-pork household — please avoid pork products and consider halal-certified meat if available. No other dietary restrictions mentioned."
+Description: "My kids haven't eaten in 3 days please help" staffNotes: "PRIORITY: Client reports household has been without food for 3 days — please flag for urgent processing. Household size unclear, defaulted to 1 — confirm in person. Recommend connecting with crisis services in addition to food assistance."
+Description: "Tengo 3 hijos, somos vegetarianos, mi hija necesita pañales" staffNotes: "Client communicates in Spanish. Family of 4 (1 adult, 3 children), vegetarian household. Referral needed: client mentioned diapers — connect with partner agency for non-food supplies."`;
 
 const aiOutputSchema = Joi.object({
   householdSize: Joi.number().integer().min(1).max(20).required(),
   dietaryNeeds: Joi.array().items(Joi.string().max(50)).max(10).default([]),
-  notes: Joi.string().max(500).allow("").default(""),
+  clientNotes: Joi.string().max(500).allow("").default(""),
+  staffNotes: Joi.string().max(1000).allow("").default(""),
   confidence: Joi.string().valid("high", "medium", "low").required(),
   warnings: Joi.array().items(Joi.string()).default([]),
 });
@@ -799,7 +820,7 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(3)
-      .select("householdSize dietaryNeeds notes")
+      .select("householdSize dietaryNeeds notes clientNotes")
       .lean();
 
     let prompt = AI_SYSTEM_PROMPT;

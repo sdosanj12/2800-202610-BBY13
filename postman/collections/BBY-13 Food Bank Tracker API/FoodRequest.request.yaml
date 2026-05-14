@@ -8,7 +8,8 @@ body:
     {
       "householdSize": 4,
       "dietaryNeeds": ["gluten-free"],
-      "notes": "Morning pickup preferred"
+      "clientNotes": "Morning pickup preferred",
+      "staffNotes": "Household of 4. Gluten-free dietary accommodation needed."
     }
 auth:
   credentials:
