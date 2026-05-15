@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const mongoSanitizer = require("mongo-sanitizer").default;
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -43,8 +45,44 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// CSP is disabled because the demo uses Tailwind CDN and inline scripts in EJS templates.
+// For production, define an explicit CSP policy that whitelists only required sources.
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+
+/* === Rate limiting === */
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/login", authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/submitUser", authLimiter);
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
+  message: {
+    error:
+      "AI assistant temporarily unavailable due to high usage. Please try again later or fill out the form manually.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by authenticated user if logged in, fall back to IP
+    return req.user?.userId || req.ip;
+  },
+});
+
+app.use("/api/ai/parse-request", aiLimiter);
 
 /* === Auth helpers === */
 
@@ -125,6 +163,25 @@ function volunteerOrAdminAuthorization(req, res, next) {
     return;
   }
   next();
+}
+
+/* === Translation helper === */
+
+async function translateText(text, targetLanguage) {
+  if (!targetLanguage || targetLanguage === "en") return text;
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { temperature: 0 },
+    });
+    const result = await model.generateContent(
+      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`
+    );
+    return result.response.text().trim();
+  } catch (err) {
+    console.error("Translation failed, returning original:", err.message);
+    return text;
+  }
 }
 
 /* === Public routes === */
@@ -349,6 +406,8 @@ app.post(
       householdSize: Joi.number().integer().min(1).max(20).required(),
       dietaryNeeds: Joi.array().items(Joi.string()).max(10).default([]),
       notes: Joi.string().max(500).allow("").optional(),
+      clientNotes: Joi.string().max(500).allow("").optional(),
+      staffNotes: Joi.string().max(1000).allow("").optional(),
     });
 
     const { error, value } = schema.validate(req.body);
@@ -359,7 +418,9 @@ app.post(
         clientId: req.user.userId,
         householdSize: value.householdSize,
         dietaryNeeds: value.dietaryNeeds,
-        notes: value.notes,
+        notes: value.notes || "",
+        clientNotes: value.clientNotes || value.notes || "",
+        staffNotes: value.staffNotes || "",
         status: "pending",
       });
       return res.status(201).json({ message: "Request submitted", request });
@@ -521,6 +582,213 @@ app.patch(
   },
 );
 
+// PATCH /api/requests/:id/allocate — admin allocates inventory items to an approved request
+app.patch(
+  "/api/requests/:id/allocate",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    const schema = Joi.object({
+      items: Joi.array()
+        .items(
+          Joi.object({
+            itemId: Joi.string().required(),
+            quantity: Joi.number().integer().min(1).required(),
+          })
+        )
+        .min(1)
+        .required(),
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      // Validate each item exists and has enough quantity
+      for (const item of value.items) {
+        const inventoryItem = await InventoryItem.findById(item.itemId);
+        if (!inventoryItem) {
+          return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
+        }
+        if (inventoryItem.quantity < item.quantity) {
+          return res
+            .status(400)
+            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+        }
+      }
+
+      // Save allocated items on the request (do NOT decrement inventory yet)
+      request.itemsAllocated = value.items.map((i) => ({
+        itemId: i.itemId,
+        quantity: i.quantity,
+      }));
+      await request.save();
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Items allocated", request: updated });
+    } catch (err) {
+      console.error("Allocate error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// PATCH /api/requests/:id/pickup — admin confirms pickup and decrements inventory
+app.patch(
+  "/api/requests/:id/pickup",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "Allocate items before confirming pickup." });
+      }
+
+      // Decrement inventory for each allocated item
+      // Note: partial-failure is acceptable for COMP 2800 scope (no transactions)
+      for (const allocation of request.itemsAllocated) {
+        const item = await InventoryItem.findById(allocation.itemId);
+        if (!item) {
+          console.error(`Pickup: inventory item ${allocation.itemId} not found, skipping`);
+          continue;
+        }
+
+        if (item.quantity < allocation.quantity) {
+          return res.status(409).json({
+            error: `Conflict: '${item.name}' now has ${item.quantity} ${item.unit} but ${allocation.quantity} were allocated. Inventory may have changed since allocation.`,
+          });
+        }
+
+        const oldStatus = item.status;
+        item.quantity -= allocation.quantity;
+        await item.save(); // pre-save hook fires, auto-updates status
+
+        // Fire low-stock/out-of-stock notification if status transitioned
+        try {
+          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+          const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
+          if (isNowLowOrOut && !wasLowOrOut) {
+            const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+            const notifications = adminUsers.map((u) => ({
+              userId: u._id,
+              type: "low-stock",
+              message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+              relatedId: item._id,
+              relatedType: "InventoryItem",
+            }));
+            if (notifications.length > 0) {
+              await Notification.insertMany(notifications);
+            }
+          }
+        } catch (notifErr) {
+          console.error("Failed to create low-stock notification during pickup:", notifErr.message);
+        }
+      }
+
+      // Mark request as picked-up
+      request.status = "picked-up";
+      await request.save();
+
+      // Create pickup-confirmed notification for the client (translated if non-English)
+      try {
+        const englishMessage = "Your food request pickup has been confirmed. Thank you!";
+        const client = await User.findById(request.clientId).select("preferredLanguage").lean();
+        const lang = client?.preferredLanguage || "en";
+        const message = await translateText(englishMessage, lang);
+
+        await Notification.create({
+          userId: request.clientId,
+          type: "pickup-confirmed",
+          message,
+          originalMessage: lang !== "en" ? englishMessage : undefined,
+          language: lang,
+          relatedId: request._id,
+          relatedType: "FoodRequest",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create pickup-confirmed notification:", notifErr.message);
+      }
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Pickup confirmed", request: updated });
+    } catch (err) {
+      console.error("Pickup error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// PATCH /api/requests/:id/cancel — client cancels their own pending request
+app.patch(
+  "/api/requests/:id/cancel",
+  sessionValidation,
+  async (req, res) => {
+    const schema = Joi.object({
+      id: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .required(),
+    });
+
+    const { error } = schema.validate(req.params);
+    if (error) {
+      return res.status(400).json({ error: "Invalid request ID" });
+    }
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.clientId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "You can only cancel your own requests" });
+      }
+
+      if (request.status !== "pending") {
+        return res
+          .status(400)
+          .json({ error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.` });
+      }
+
+      request.status = "cancelled";
+      await request.save();
+
+      return res
+        .status(200)
+        .json({ message: "Request cancelled", request });
+    } catch (err) {
+      console.error("Cancel error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 /* === Inventory API === */
 
 // POST /api/inventory — adminadds an item
@@ -577,7 +845,33 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
       .populate("addedBy", "username")
       .sort({ expiryDate: 1, name: 1 });
 
-    return res.status(200).json({ count: items.length, items });
+    let result = items.map((i) => i.toObject());
+
+    // Optionally include allocated quantities across approved (not yet picked-up) requests
+    if (req.query.includeAllocated === "true") {
+      const allocations = await FoodRequest.aggregate([
+        { $match: { status: "approved" } },
+        { $unwind: "$itemsAllocated" },
+        {
+          $group: {
+            _id: "$itemsAllocated.itemId",
+            allocatedQuantity: { $sum: "$itemsAllocated.quantity" },
+          },
+        },
+      ]);
+
+      const allocMap = {};
+      for (const a of allocations) {
+        allocMap[a._id.toString()] = a.allocatedQuantity;
+      }
+
+      result = result.map((item) => ({
+        ...item,
+        allocatedQuantity: allocMap[item._id.toString()] || 0,
+      }));
+    }
+
+    return res.status(200).json({ count: result.length, items: result });
   } catch (err) {
     console.error("Inventory fetch error:", err.message);
     return res.status(500).json({ error: "Server error" });
@@ -745,20 +1039,37 @@ app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
 const AI_SYSTEM_PROMPT = `You are a food bank intake assistant. Your job is to parse a client's natural-language description of their household into structured data for a food request.
 
 Rules:
-- Output ONLY valid JSON matching this exact schema: { "householdSize": integer 1-20, "dietaryNeeds": array of strings, "notes": string, "confidence": "high"|"medium"|"low", "warnings": array of strings }
+- Output ONLY valid JSON matching this exact schema: { "householdSize": integer 1-20, "dietaryNeeds": array of strings, "clientNotes": string, "staffNotes": string, "confidence": "high"|"medium"|"low", "warnings": array of strings }
 - Do NOT output any markdown, prose, or explanation — ONLY the JSON object.
 - householdSize: count every person in the household including the speaker. If unclear, default to 1 and add a warning "Household size unclear, defaulted to 1".
 - dietaryNeeds: specific, lowercase, short phrases like "diabetic", "halal", "no pork", "gluten-free", "peanut allergy", "vegetarian". Maximum 10 items, each max 50 characters.
-- notes: only context that staff needs to know that is NOT already captured in householdSize or dietaryNeeds. Do not repeat household size or dietary info here. Max 500 characters. Leave empty string if nothing relevant.
+- clientNotes: things the client explicitly said that staff should know, NOT repeating householdSize or dietaryNeeds. Max 500 characters. Leave empty string if nothing relevant.
 - confidence: set to "high" if the description is clear and specific. Set to "medium" if some ambiguity exists but a reasonable interpretation is possible. Set to "low" if the description is vague, very short, or largely ambiguous.
 - warnings: add warnings for any of: medical claims that need staff attention, requests for non-food items (diapers, clothes, etc — note that baby formula IS food), urgent/crisis language suggesting immediate danger, anything outside normal food bank scope. Each warning should be a short, clear sentence.
 - NEVER invent details not present in or clearly implied by the description.
-- If the description is in a language other than English, do your best to parse it and add a warning noting the language.`;
+- If the description is in a language other than English, do your best to parse it and add a warning noting the language.
+
+STAFF NOTES (intake summary): You are also acting as an experienced intake coordinator. Write "staffNotes" as a brief, professional summary that helps staff prepare for this client. Include:
+1. One-line summary of household composition and key dietary considerations
+2. Any priority flags (urgent need, first-time visitor cues, mentions of food insecurity duration)
+3. Operational considerations (cultural/religious dietary requirements, medical conditions affecting food choices, accessibility needs, language)
+4. Non-food asks the client mentioned that staff should address through referrals (note these as "Referral needed: ...")
+5. Anything ambiguous staff should clarify in person
+Format as 2-5 short sentences or bullet points. Be neutral and professional — no judgments, no assumptions about client's situation. Only include information present in or directly implied by the description.
+If the input language is not English, note that at the start: "Client communicates in [language]."
+Do NOT repeat the householdSize or dietaryNeeds verbatim in staffNotes — these are already structured fields. Instead, reference them as context for the summary.
+Max 1000 characters for staffNotes.
+
+Examples:
+Description: "I have 4 kids and my husband. We don't eat pork." staffNotes: "Family of 6 (2 adults, 4 children). Halal/no-pork household — please avoid pork products and consider halal-certified meat if available. No other dietary restrictions mentioned."
+Description: "My kids haven't eaten in 3 days please help" staffNotes: "PRIORITY: Client reports household has been without food for 3 days — please flag for urgent processing. Household size unclear, defaulted to 1 — confirm in person. Recommend connecting with crisis services in addition to food assistance."
+Description: "Tengo 3 hijos, somos vegetarianos, mi hija necesita pañales" staffNotes: "Client communicates in Spanish. Family of 4 (1 adult, 3 children), vegetarian household. Referral needed: client mentioned diapers — connect with partner agency for non-food supplies."`;
 
 const aiOutputSchema = Joi.object({
   householdSize: Joi.number().integer().min(1).max(20).required(),
   dietaryNeeds: Joi.array().items(Joi.string().max(50)).max(10).default([]),
-  notes: Joi.string().max(500).allow("").default(""),
+  clientNotes: Joi.string().max(500).allow("").default(""),
+  staffNotes: Joi.string().max(1000).allow("").default(""),
   confidence: Joi.string().valid("high", "medium", "low").required(),
   warnings: Joi.array().items(Joi.string()).default([]),
 });
@@ -781,7 +1092,7 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     })
       .sort({ createdAt: -1 })
       .limit(3)
-      .select("householdSize dietaryNeeds notes")
+      .select("householdSize dietaryNeeds notes clientNotes")
       .lean();
 
     let prompt = AI_SYSTEM_PROMPT;
