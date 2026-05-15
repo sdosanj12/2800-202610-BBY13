@@ -40,6 +40,13 @@ const foodRequestSchema = new mongoose.Schema(
       type: String,
       maxlength: 1000
     },
+    originalNotes: {
+      type: String,
+      maxlength: 500
+    },
+    originalLanguage: {
+      type: String
+    },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

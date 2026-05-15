@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
     hintsSeen: {
       type: [String],
       default: []
+    },
+    preferredLanguage: {
+      type: String,
+      default: 'en'
     }
   },
   { timestamps: true }
