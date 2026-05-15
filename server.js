@@ -125,6 +125,25 @@ function volunteerOrAdminAuthorization(req, res, next) {
   next();
 }
 
+/* === Translation helper === */
+
+async function translateText(text, targetLanguage) {
+  if (!targetLanguage || targetLanguage === "en") return text;
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { temperature: 0 },
+    });
+    const result = await model.generateContent(
+      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`
+    );
+    return result.response.text().trim();
+  } catch (err) {
+    console.error("Translation failed, returning original:", err.message);
+    return text;
+  }
+}
+
 /* === Public routes === */
 
 app.get("/", (req, res) => {
@@ -654,12 +673,19 @@ app.patch(
       request.status = "picked-up";
       await request.save();
 
-      // Create pickup-confirmed notification for the client
+      // Create pickup-confirmed notification for the client (translated if non-English)
       try {
+        const englishMessage = "Your food request pickup has been confirmed. Thank you!";
+        const client = await User.findById(request.clientId).select("preferredLanguage").lean();
+        const lang = client?.preferredLanguage || "en";
+        const message = await translateText(englishMessage, lang);
+
         await Notification.create({
           userId: request.clientId,
           type: "pickup-confirmed",
-          message: "Your food request pickup has been confirmed. Thank you!",
+          message,
+          originalMessage: lang !== "en" ? englishMessage : undefined,
+          language: lang,
           relatedId: request._id,
           relatedType: "FoodRequest",
         });
