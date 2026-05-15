@@ -706,6 +706,49 @@ app.patch(
   },
 );
 
+// PATCH /api/requests/:id/cancel — client cancels their own pending request
+app.patch(
+  "/api/requests/:id/cancel",
+  sessionValidation,
+  async (req, res) => {
+    const schema = Joi.object({
+      id: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .required(),
+    });
+
+    const { error } = schema.validate(req.params);
+    if (error) {
+      return res.status(400).json({ error: "Invalid request ID" });
+    }
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.clientId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "You can only cancel your own requests" });
+      }
+
+      if (request.status !== "pending") {
+        return res
+          .status(400)
+          .json({ error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.` });
+      }
+
+      request.status = "cancelled";
+      await request.save();
+
+      return res
+        .status(200)
+        .json({ message: "Request cancelled", request });
+    } catch (err) {
+      console.error("Cancel error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 /* === Inventory API === */
 
 // POST /api/inventory — adminadds an item
