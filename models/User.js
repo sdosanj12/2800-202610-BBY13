@@ -25,9 +25,6 @@ const userSchema = new mongoose.Schema(
       type: [{ type: String, enum: ['client', 'volunteer', 'admin'] }],
       default: ['client']
     },
-    householdSize: {
-      type: Number
-    },
     firstTimeMode: {
       type: Boolean,
       default: true
@@ -49,6 +46,10 @@ const userSchema = new mongoose.Schema(
     dietaryRestrictions: {
       type: [String],
       default: []
+    },
+      preferredLanguage: {
+      type: String,
+      default: 'en'
     }
   },
   { timestamps: true }

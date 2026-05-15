@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const mongoSanitizer = require("mongo-sanitizer").default;
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -43,8 +45,44 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// CSP is disabled because the demo uses Tailwind CDN and inline scripts in EJS templates.
+// For production, define an explicit CSP policy that whitelists only required sources.
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+
+/* === Rate limiting === */
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/login", authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/submitUser", authLimiter);
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
+  message: {
+    error:
+      "AI assistant temporarily unavailable due to high usage. Please try again later or fill out the form manually.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by authenticated user if logged in, fall back to IP
+    return req.user?.userId || req.ip;
+  },
+});
+
+app.use("/api/ai/parse-request", aiLimiter);
 
 /* === Auth helpers === */
 
@@ -125,6 +163,25 @@ function volunteerOrAdminAuthorization(req, res, next) {
     return;
   }
   next();
+}
+
+/* === Translation helper === */
+
+async function translateText(text, targetLanguage) {
+  if (!targetLanguage || targetLanguage === "en") return text;
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { temperature: 0 },
+    });
+    const result = await model.generateContent(
+      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`
+    );
+    return result.response.text().trim();
+  } catch (err) {
+    console.error("Translation failed, returning original:", err.message);
+    return text;
+  }
 }
 
 /* === Public routes === */
@@ -543,6 +600,213 @@ app.patch(
   },
 );
 
+// PATCH /api/requests/:id/allocate — admin allocates inventory items to an approved request
+app.patch(
+  "/api/requests/:id/allocate",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    const schema = Joi.object({
+      items: Joi.array()
+        .items(
+          Joi.object({
+            itemId: Joi.string().required(),
+            quantity: Joi.number().integer().min(1).required(),
+          })
+        )
+        .min(1)
+        .required(),
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      // Validate each item exists and has enough quantity
+      for (const item of value.items) {
+        const inventoryItem = await InventoryItem.findById(item.itemId);
+        if (!inventoryItem) {
+          return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
+        }
+        if (inventoryItem.quantity < item.quantity) {
+          return res
+            .status(400)
+            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+        }
+      }
+
+      // Save allocated items on the request (do NOT decrement inventory yet)
+      request.itemsAllocated = value.items.map((i) => ({
+        itemId: i.itemId,
+        quantity: i.quantity,
+      }));
+      await request.save();
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Items allocated", request: updated });
+    } catch (err) {
+      console.error("Allocate error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// PATCH /api/requests/:id/pickup — admin confirms pickup and decrements inventory
+app.patch(
+  "/api/requests/:id/pickup",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "Allocate items before confirming pickup." });
+      }
+
+      // Decrement inventory for each allocated item
+      // Note: partial-failure is acceptable for COMP 2800 scope (no transactions)
+      for (const allocation of request.itemsAllocated) {
+        const item = await InventoryItem.findById(allocation.itemId);
+        if (!item) {
+          console.error(`Pickup: inventory item ${allocation.itemId} not found, skipping`);
+          continue;
+        }
+
+        if (item.quantity < allocation.quantity) {
+          return res.status(409).json({
+            error: `Conflict: '${item.name}' now has ${item.quantity} ${item.unit} but ${allocation.quantity} were allocated. Inventory may have changed since allocation.`,
+          });
+        }
+
+        const oldStatus = item.status;
+        item.quantity -= allocation.quantity;
+        await item.save(); // pre-save hook fires, auto-updates status
+
+        // Fire low-stock/out-of-stock notification if status transitioned
+        try {
+          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+          const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
+          if (isNowLowOrOut && !wasLowOrOut) {
+            const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+            const notifications = adminUsers.map((u) => ({
+              userId: u._id,
+              type: "low-stock",
+              message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+              relatedId: item._id,
+              relatedType: "InventoryItem",
+            }));
+            if (notifications.length > 0) {
+              await Notification.insertMany(notifications);
+            }
+          }
+        } catch (notifErr) {
+          console.error("Failed to create low-stock notification during pickup:", notifErr.message);
+        }
+      }
+
+      // Mark request as picked-up
+      request.status = "picked-up";
+      await request.save();
+
+      // Create pickup-confirmed notification for the client (translated if non-English)
+      try {
+        const englishMessage = "Your food request pickup has been confirmed. Thank you!";
+        const client = await User.findById(request.clientId).select("preferredLanguage").lean();
+        const lang = client?.preferredLanguage || "en";
+        const message = await translateText(englishMessage, lang);
+
+        await Notification.create({
+          userId: request.clientId,
+          type: "pickup-confirmed",
+          message,
+          originalMessage: lang !== "en" ? englishMessage : undefined,
+          language: lang,
+          relatedId: request._id,
+          relatedType: "FoodRequest",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create pickup-confirmed notification:", notifErr.message);
+      }
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Pickup confirmed", request: updated });
+    } catch (err) {
+      console.error("Pickup error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// PATCH /api/requests/:id/cancel — client cancels their own pending request
+app.patch(
+  "/api/requests/:id/cancel",
+  sessionValidation,
+  async (req, res) => {
+    const schema = Joi.object({
+      id: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .required(),
+    });
+
+    const { error } = schema.validate(req.params);
+    if (error) {
+      return res.status(400).json({ error: "Invalid request ID" });
+    }
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.clientId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "You can only cancel your own requests" });
+      }
+
+      if (request.status !== "pending") {
+        return res
+          .status(400)
+          .json({ error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.` });
+      }
+
+      request.status = "cancelled";
+      await request.save();
+
+      return res
+        .status(200)
+        .json({ message: "Request cancelled", request });
+    } catch (err) {
+      console.error("Cancel error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 /* === Inventory API === */
 
 // POST /api/inventory — adminadds an item
@@ -599,7 +863,33 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
       .populate("addedBy", "username")
       .sort({ expiryDate: 1, name: 1 });
 
-    return res.status(200).json({ count: items.length, items });
+    let result = items.map((i) => i.toObject());
+
+    // Optionally include allocated quantities across approved (not yet picked-up) requests
+    if (req.query.includeAllocated === "true") {
+      const allocations = await FoodRequest.aggregate([
+        { $match: { status: "approved" } },
+        { $unwind: "$itemsAllocated" },
+        {
+          $group: {
+            _id: "$itemsAllocated.itemId",
+            allocatedQuantity: { $sum: "$itemsAllocated.quantity" },
+          },
+        },
+      ]);
+
+      const allocMap = {};
+      for (const a of allocations) {
+        allocMap[a._id.toString()] = a.allocatedQuantity;
+      }
+
+      result = result.map((item) => ({
+        ...item,
+        allocatedQuantity: allocMap[item._id.toString()] || 0,
+      }));
+    }
+
+    return res.status(200).json({ count: result.length, items: result });
   } catch (err) {
     console.error("Inventory fetch error:", err.message);
     return res.status(500).json({ error: "Server error" });

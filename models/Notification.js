@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['request-approved', 'request-denied', 'pickup-reminder', 'low-stock'],
+      enum: ['request-approved', 'request-denied', 'pickup-reminder', 'low-stock', 'pickup-confirmed'],
       required: true
     },
     message: {
@@ -29,6 +29,14 @@ const notificationSchema = new mongoose.Schema(
     relatedType: {
       type: String,
       enum: ['FoodRequest', 'InventoryItem']
+    },
+    language: {
+      type: String,
+      default: 'en'
+    },
+    originalMessage: {
+      type: String,
+      maxlength: 500
     }
   },
   { timestamps: true }
