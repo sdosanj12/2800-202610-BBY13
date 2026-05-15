@@ -1,0 +1,15 @@
+$kind: http-request
+name: NotifTest8-2-OwnershipDelete403
+url: 'http://localhost:3001/api/notifications/{{notifId}}'
+method: DELETE
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("403 Forbidden", () => pm.response.to.have.status(403));
+    language: text/javascript
+order: 21

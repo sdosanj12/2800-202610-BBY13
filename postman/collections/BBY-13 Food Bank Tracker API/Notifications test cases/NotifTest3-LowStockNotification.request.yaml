@@ -1,0 +1,22 @@
+$kind: http-request
+name: NotifTest3-LowStockNotification
+url: 'http://localhost:3001/api/inventory/{{inventoryItemId}}'
+method: PATCH
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{JWT}}'
+body:
+  type: json
+  content: |-
+    {
+      "quantity": 3
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test("200 OK", () => pm.response.to.have.status(200));
+      pm.test("item status equals low-stock", () => pm.expect(pm.response.json().item.status).to.equal("low-stock"));
+    language: text/javascript
+order: 10
