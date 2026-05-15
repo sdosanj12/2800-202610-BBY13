@@ -13,12 +13,27 @@
       <p class="text-emerald-800 font-medium">Your food request has been submitted! Staff will review it soon.</p>
     </div>
 
-    <h1 class="text-2xl font-bold text-slate-900 mb-2">Welcome, <%= username %></h1>
-    <p class="text-slate-600 mb-8">Client Dashboard</p>
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 mb-2">Welcome, <%= username %></h1>
+        <p class="text-slate-600">Client Dashboard</p>
+      </div>
+      <a href="/client/notifications" class="relative p-2 text-slate-500 hover:text-slate-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+      </a>
+    </div>
 
-    <a href="/client/ai-request" class="inline-block bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 px-6 font-medium transition-colors">
-      Try our new Smart Request Assistant
-    </a>
+    <div class="space-y-3">
+      <a href="/client/ai-request" class="inline-block bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 px-6 font-medium transition-colors">
+        Try our new Smart Request Assistant
+      </a>
+      <a href="/client/notifications" class="inline-block bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors">
+        Notifications
+      </a>
+    </div>
 
     <div class="mt-6">
       <a href="/logout" class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Logout</a>
@@ -29,6 +44,20 @@
     if (new URLSearchParams(window.location.search).get('submitted') === '1') {
       document.getElementById('submitted-banner').classList.remove('hidden');
     }
+
+    async function updateNotifBadge() {
+      try {
+        const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+        const data = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.count > 0) {
+          badge.textContent = data.count > 99 ? '99+' : data.count;
+          badge.classList.remove('hidden');
+        } else { badge.classList.add('hidden'); }
+      } catch (err) { /* silent */ }
+    }
+    updateNotifBadge();
+    setInterval(updateNotifBadge, 60000);
   </script>
 </body>
 </html>

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operations — Food Bank Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+  </style>
+</head>
+<body class="bg-stone-50 min-h-screen">
+
+  <div class="max-w-7xl mx-auto px-4 py-8 fade-in">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Operations</h1>
+        <p class="text-slate-600 text-sm">Manage food requests and inventory</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/admin/notifications" class="relative p-2 text-slate-500 hover:text-slate-700">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+        </a>
+        <a href="/admin/dashboard" class="text-slate-500 hover:text-slate-700 text-sm font-medium">Back to Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Section 1: Pending Requests -->
+    <section class="bg-white rounded-2xl shadow-md p-6 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-slate-900">Pending Requests</h2>
+        <span id="pending-count" class="text-sm text-slate-500">Loading...</span>
+      </div>
+      <div id="pending-table-wrap" class="hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b text-left text-slate-500">
+              <th class="pb-3 pr-4">Client</th>
+              <th class="pb-3 pr-4">Household</th>
+              <th class="pb-3 pr-4">Dietary Needs</th>
+              <th class="pb-3 pr-4">Submitted</th>
+              <th class="pb-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pending-tbody"></tbody>
+        </table>
+      </div>
+      <div id="pending-cards" class="md:hidden space-y-4"></div>
+      <div id="pending-empty" class="hidden text-center py-8 text-slate-400">No pending requests.</div>
+    </section>
+
+    <!-- Section 2: Approved Requests -->
+    <section class="bg-white rounded-2xl shadow-md p-6 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-slate-900">Approved — Pickup Queue</h2>
+        <span id="approved-count" class="text-sm text-slate-500">Loading...</span>
+      </div>
+      <div id="approved-table-wrap" class="hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b text-left text-slate-500">
+              <th class="pb-3 pr-4">Client</th>
+              <th class="pb-3 pr-4">Pickup Date</th>
+              <th class="pb-3 pr-4">Pickup Time</th>
+              <th class="pb-3 pr-4">Items Allocated</th>
+              <th class="pb-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="approved-tbody"></tbody>
+        </table>
+      </div>
+      <div id="approved-cards" class="md:hidden space-y-4"></div>
+      <div id="approved-empty" class="hidden text-center py-8 text-slate-400">No approved requests awaiting pickup.</div>
+    </section>
+
+    <!-- Section 3: Low-Stock Alerts -->
+    <section class="bg-white rounded-2xl shadow-md p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-slate-900">Low-Stock Alerts</h2>
+        <span id="lowstock-count" class="text-sm text-slate-500">Loading...</span>
+      </div>
+      <div id="lowstock-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="lowstock-empty" class="hidden text-center py-8 text-slate-400">All items are well-stocked.</div>
+    </section>
+  </div>
+
+  <!-- Approve Modal -->
+  <div id="modal-approve" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal('approve')"></div>
+    <div class="relative max-w-md mx-auto mt-20 bg-white rounded-2xl shadow-xl p-6">
+      <button onclick="closeModal('approve')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-bold text-slate-900 mb-4">Approve Request</h3>
+      <input type="hidden" id="approve-request-id" />
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Pickup Date</label>
+          <input type="date" id="approve-date" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Pickup Time</label>
+          <input type="time" id="approve-time" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+      <div id="approve-error" class="text-red-600 text-sm mt-3 hidden"></div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeModal('approve')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors">Cancel</button>
+        <button id="btn-confirm-approve" onclick="submitApprove()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full py-3 px-6 font-medium transition-colors">Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deny Modal -->
+  <div id="modal-deny" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal('deny')"></div>
+    <div class="relative max-w-md mx-auto mt-20 bg-white rounded-2xl shadow-xl p-6">
+      <button onclick="closeModal('deny')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-bold text-slate-900 mb-4">Deny Request</h3>
+      <input type="hidden" id="deny-request-id" />
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+        <textarea id="deny-reason" rows="3" maxlength="500" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Reason for denial..."></textarea>
+      </div>
+      <div id="deny-error" class="text-red-600 text-sm mt-3 hidden"></div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeModal('deny')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors">Cancel</button>
+        <button id="btn-confirm-deny" onclick="submitDeny()" class="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-full py-3 px-6 font-medium transition-colors">Deny</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Allocate Modal -->
+  <div id="modal-allocate" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal('allocate')"></div>
+    <div class="relative max-w-lg mx-auto mt-20 bg-white rounded-2xl shadow-xl p-6 max-h-[80vh] overflow-y-auto">
+      <button onclick="closeModal('allocate')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-bold text-slate-900 mb-4">Allocate Items</h3>
+      <input type="hidden" id="allocate-request-id" />
+      <input type="text" id="inventory-search" placeholder="Search inventory..." class="w-full border border-slate-300 rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <div id="allocation-rows" class="space-y-3 mb-4"></div>
+      <button onclick="addAllocationRow()" class="text-blue-600 hover:text-blue-800 text-sm font-medium">+ Add item</button>
+      <div id="allocate-error" class="text-red-600 text-sm mt-3 hidden"></div>
+      <div class="flex gap-3 mt-6">
+        <button onclick="closeModal('allocate')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors">Cancel</button>
+        <button id="btn-confirm-allocate" onclick="submitAllocate()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 px-6 font-medium transition-colors">Allocate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Pickup Modal -->
+  <div id="modal-pickup" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal('pickup')"></div>
+    <div class="relative max-w-md mx-auto mt-20 bg-white rounded-2xl shadow-xl p-6">
+      <button onclick="closeModal('pickup')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+      <h3 class="text-lg font-bold text-slate-900 mb-4">Confirm Pickup</h3>
+      <input type="hidden" id="pickup-request-id" />
+      <p class="text-slate-600 text-sm mb-6">This will mark the request as picked up and decrement inventory quantities. Are you sure?</p>
+      <div id="pickup-error" class="text-red-600 text-sm mt-3 hidden"></div>
+      <div class="flex gap-3">
+        <button onclick="closeModal('pickup')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors">Cancel</button>
+        <button id="btn-confirm-pickup" onclick="submitPickup()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full py-3 px-6 font-medium transition-colors">Confirm Pickup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[60] space-y-2"></div>
+
+  <script>
+    let inventoryCache = [];
+
+    // --- Utilities ---
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    function fmtDate(str) {
+      if (!str) return '—';
+      return new Date(str).toLocaleDateString();
+    }
+
+    function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+    function hideError(el) { el.textContent = ''; el.classList.add('hidden'); }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-blue-600' };
+      const toast = document.createElement('div');
+      toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-opacity duration-300`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    function dietaryPills(arr) {
+      if (!arr || arr.length === 0) return '<span class="text-slate-400">None</span>';
+      return arr.map(d => `<span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">${esc(d)}</span>`).join(' ');
+    }
+
+    function notesBlock(clientNotes, staffNotes) {
+      if (!clientNotes && !staffNotes) return '';
+      let html = '<div class="mt-2 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 space-y-1">';
+      if (clientNotes) html += `<p><span class="font-medium">Client:</span> ${esc(clientNotes)}</p>`;
+      if (staffNotes) html += `<p><span class="font-medium">AI Summary</span> <span class="text-amber-500">&#10024;</span>: ${esc(staffNotes)}</p>`;
+      html += '</div>';
+      return html;
+    }
+
+    // --- Fetch and render ---
+    async function fetchPending() {
+      try {
+        const res = await fetch('/api/requests/pending', { credentials: 'include' });
+        const data = await res.json();
+        renderPending(data.requests || []);
+        document.getElementById('pending-count').textContent = `${data.count || 0} pending`;
+      } catch (err) { console.error('fetchPending:', err); }
+    }
+
+    async function fetchApproved() {
+      try {
+        const res = await fetch('/api/requests/approved', { credentials: 'include' });
+        const data = await res.json();
+        renderApproved(data.requests || []);
+        document.getElementById('approved-count').textContent = `${data.count || 0} in queue`;
+      } catch (err) { console.error('fetchApproved:', err); }
+    }
+
+    async function fetchLowStock() {
+      try {
+        const res = await fetch('/api/inventory/low-stock', { credentials: 'include' });
+        const data = await res.json();
+        renderLowStock(data.items || []);
+        document.getElementById('lowstock-count').textContent = `${data.count || 0} alerts`;
+      } catch (err) { console.error('fetchLowStock:', err); }
+    }
+
+    async function fetchInventory() {
+      try {
+        const res = await fetch('/api/inventory?includeAllocated=true', { credentials: 'include' });
+        const data = await res.json();
+        inventoryCache = (data.items || []).filter(i => (i.quantity - (i.allocatedQuantity || 0)) > 0);
+      } catch (err) { console.error('fetchInventory:', err); }
+    }
+
+    function renderPending(requests) {
+      const tbody = document.getElementById('pending-tbody');
+      const cards = document.getElementById('pending-cards');
+      const empty = document.getElementById('pending-empty');
+      const tableWrap = document.getElementById('pending-table-wrap');
+
+      if (requests.length === 0) {
+        tbody.innerHTML = '';
+        cards.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      let tableHtml = '';
+      let cardsHtml = '';
+      for (const r of requests) {
+        const name = esc(r.clientId?.username || 'Unknown');
+        const date = fmtDate(r.createdAt);
+        const hasNotes = r.clientNotes || r.staffNotes;
+        const notesId = 'notes-' + r._id;
+
+        tableHtml += `
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="py-3 pr-4 font-medium text-slate-900">${name}</td>
+            <td class="py-3 pr-4">${r.householdSize}</td>
+            <td class="py-3 pr-4">${dietaryPills(r.dietaryNeeds)}</td>
+            <td class="py-3 pr-4 text-slate-500">${date}</td>
+            <td class="py-3">
+              <div class="flex gap-2">
+                <button onclick="openModal('approve','${r._id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-full py-1.5 px-3 font-medium transition-colors">Approve</button>
+                <button onclick="openModal('deny','${r._id}')" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded-full py-1.5 px-3 font-medium transition-colors">Deny</button>
+                ${hasNotes ? `<button onclick="document.getElementById('${notesId}').classList.toggle('hidden')" class="text-slate-400 hover:text-slate-600 text-xs underline">Notes</button>` : ''}
+              </div>
+            </td>
+          </tr>
+          ${hasNotes ? `<tr id="${notesId}" class="hidden"><td colspan="5" class="pb-3">${notesBlock(r.clientNotes, r.staffNotes)}</td></tr>` : ''}`;
+
+        cardsHtml += `
+          <div class="bg-slate-50 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between items-start">
+              <span class="font-medium text-slate-900">${name}</span>
+              <span class="text-xs text-slate-500">${date}</span>
+            </div>
+            <div class="text-sm text-slate-600">Household: ${r.householdSize}</div>
+            <div class="flex flex-wrap gap-1">${dietaryPills(r.dietaryNeeds)}</div>
+            ${hasNotes ? notesBlock(r.clientNotes, r.staffNotes) : ''}
+            <div class="flex gap-2 pt-2">
+              <button onclick="openModal('approve','${r._id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-full py-2 font-medium transition-colors">Approve</button>
+              <button onclick="openModal('deny','${r._id}')" class="flex-1 bg-red-100 hover:bg-red-200 text-red-700 text-sm rounded-full py-2 font-medium transition-colors">Deny</button>
+            </div>
+          </div>`;
+      }
+      tbody.innerHTML = tableHtml;
+      cards.innerHTML = cardsHtml;
+    }
+
+    function renderApproved(requests) {
+      const tbody = document.getElementById('approved-tbody');
+      const cards = document.getElementById('approved-cards');
+      const empty = document.getElementById('approved-empty');
+
+      if (requests.length === 0) {
+        tbody.innerHTML = '';
+        cards.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      let tableHtml = '';
+      let cardsHtml = '';
+      for (const r of requests) {
+        const name = esc(r.clientId?.username || 'Unknown');
+        const pDate = fmtDate(r.pickupDate);
+        const pTime = r.pickupTime || '—';
+        const allocCount = r.itemsAllocated?.length || 0;
+        const hasItems = allocCount > 0;
+        const itemsId = 'items-' + r._id;
+
+        let itemsList = '';
+        if (hasItems) {
+          itemsList = '<ul class="mt-1 text-xs text-slate-600 list-disc pl-4">';
+          for (const a of r.itemsAllocated) {
+            const itemName = a.itemId?.name || 'Unknown item';
+            itemsList += `<li>${esc(itemName)} x${a.quantity}</li>`;
+          }
+          itemsList += '</ul>';
+        }
+
+        tableHtml += `
+          <tr class="border-b border-slate-100 hover:bg-slate-50">
+            <td class="py-3 pr-4 font-medium text-slate-900">${name}</td>
+            <td class="py-3 pr-4">${pDate}</td>
+            <td class="py-3 pr-4">${pTime}</td>
+            <td class="py-3 pr-4">
+              ${hasItems
+                ? `<button onclick="document.getElementById('${itemsId}').classList.toggle('hidden')" class="text-blue-600 hover:text-blue-800 text-xs underline">${allocCount} item${allocCount !== 1 ? 's' : ''}</button>
+                   <div id="${itemsId}" class="hidden">${itemsList}</div>`
+                : '<span class="text-slate-400 text-xs">None yet</span>'}
+            </td>
+            <td class="py-3">
+              <div class="flex gap-2">
+                <button onclick="openModal('allocate','${r._id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-full py-1.5 px-3 font-medium transition-colors">Allocate</button>
+                <button onclick="openModal('pickup','${r._id}')" ${!hasItems ? 'disabled' : ''} class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-full py-1.5 px-3 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Pickup</button>
+              </div>
+            </td>
+          </tr>`;
+
+        cardsHtml += `
+          <div class="bg-slate-50 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between items-start">
+              <span class="font-medium text-slate-900">${name}</span>
+              <span class="text-xs text-slate-500">${pDate} ${pTime}</span>
+            </div>
+            <div class="text-sm text-slate-600">
+              ${hasItems ? `${allocCount} item${allocCount !== 1 ? 's' : ''} allocated` : 'No items allocated'}
+              ${hasItems ? itemsList : ''}
+            </div>
+            <div class="flex gap-2 pt-2">
+              <button onclick="openModal('allocate','${r._id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-full py-2 font-medium transition-colors">Allocate</button>
+              <button onclick="openModal('pickup','${r._id}')" ${!hasItems ? 'disabled' : ''} class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-full py-2 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Pickup</button>
+            </div>
+          </div>`;
+      }
+      tbody.innerHTML = tableHtml;
+      cards.innerHTML = cardsHtml;
+    }
+
+    function renderLowStock(items) {
+      const grid = document.getElementById('lowstock-grid');
+      const empty = document.getElementById('lowstock-empty');
+
+      if (items.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      grid.innerHTML = items.map(i => {
+        const isOut = i.status === 'out-of-stock';
+        const badgeColor = isOut ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800';
+        const label = isOut ? 'Out of stock' : 'Low stock';
+        return `
+          <div class="border border-slate-200 rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-medium text-slate-900 text-sm">${esc(i.name)}</span>
+              <span class="${badgeColor} text-xs px-2 py-0.5 rounded-full font-medium">${label}</span>
+            </div>
+            <p class="text-slate-500 text-xs">${esc(i.category)} &middot; ${i.quantity} ${esc(i.unit)}</p>
+          </div>`;
+      }).join('');
+    }
+
+    // --- Modal management ---
+    function openModal(type, requestId) {
+      document.getElementById(`${type}-request-id`).value = requestId;
+      document.getElementById(`modal-${type}`).classList.remove('hidden');
+      if (type === 'approve') {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('approve-date').min = tomorrow.toISOString().split('T')[0];
+      }
+      if (type === 'allocate') {
+        fetchInventory().then(() => addAllocationRow());
+      }
+    }
+
+    function closeModal(type) {
+      document.getElementById(`modal-${type}`).classList.add('hidden');
+      const errEl = document.getElementById(`${type}-error`);
+      if (errEl) hideError(errEl);
+      if (type === 'approve') {
+        document.getElementById('approve-date').value = '';
+        document.getElementById('approve-time').value = '';
+      }
+      if (type === 'deny') {
+        document.getElementById('deny-reason').value = '';
+      }
+      if (type === 'allocate') {
+        document.getElementById('allocation-rows').innerHTML = '';
+        document.getElementById('inventory-search').value = '';
+      }
+    }
+
+    // --- Approve ---
+    async function submitApprove() {
+      const id = document.getElementById('approve-request-id').value;
+      const pickupDate = document.getElementById('approve-date').value;
+      const pickupTime = document.getElementById('approve-time').value;
+      const errEl = document.getElementById('approve-error');
+
+      if (!pickupDate || !pickupTime) { showError(errEl, 'Please set both date and time.'); return; }
+
+      const btn = document.getElementById('btn-confirm-approve');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/requests/${id}/approve`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pickupDate, pickupTime })
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(errEl, data.error || 'Failed to approve'); return; }
+        closeModal('approve');
+        showToast('Request approved');
+        refreshAll();
+      } catch (err) { showError(errEl, 'Network error'); }
+      finally { btn.disabled = false; }
+    }
+
+    // --- Deny ---
+    async function submitDeny() {
+      const id = document.getElementById('deny-request-id').value;
+      const denialReason = document.getElementById('deny-reason').value;
+      const errEl = document.getElementById('deny-error');
+      const btn = document.getElementById('btn-confirm-deny');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/requests/${id}/deny`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ denialReason })
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(errEl, data.error || 'Failed to deny'); return; }
+        closeModal('deny');
+        showToast('Request denied', 'info');
+        refreshAll();
+      } catch (err) { showError(errEl, 'Network error'); }
+      finally { btn.disabled = false; }
+    }
+
+    // --- Allocate ---
+    function addAllocationRow() {
+      const container = document.getElementById('allocation-rows');
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2';
+      const options = inventoryCache.map(i => {
+        const avail = i.quantity - (i.allocatedQuantity || 0);
+        return `<option value="${i._id}" data-max="${avail}">${esc(i.name)} (${avail} ${esc(i.unit)} avail)</option>`;
+      }).join('');
+      row.innerHTML = `
+        <select class="alloc-item flex-1 border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Select item...</option>
+          ${options}
+        </select>
+        <input type="number" min="1" value="1" class="alloc-qty w-20 border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 font-bold text-sm px-1">&times;</button>`;
+
+      // Set max on quantity when item changes
+      const select = row.querySelector('.alloc-item');
+      const qtyInput = row.querySelector('.alloc-qty');
+      select.addEventListener('change', () => {
+        const opt = select.options[select.selectedIndex];
+        const max = parseInt(opt.dataset.max) || 1;
+        qtyInput.max = max;
+        if (parseInt(qtyInput.value) > max) qtyInput.value = max;
+      });
+
+      container.appendChild(row);
+    }
+
+    document.getElementById('inventory-search').addEventListener('input', function () {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('.alloc-item option').forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = !opt.textContent.toLowerCase().includes(q);
+      });
+    });
+
+    async function submitAllocate() {
+      const id = document.getElementById('allocate-request-id').value;
+      const errEl = document.getElementById('allocate-error');
+      const rows = document.querySelectorAll('#allocation-rows > div');
+      const items = [];
+
+      for (const row of rows) {
+        const itemId = row.querySelector('.alloc-item').value;
+        const quantity = parseInt(row.querySelector('.alloc-qty').value);
+        if (!itemId) continue;
+        if (!quantity || quantity < 1) { showError(errEl, 'Quantity must be at least 1'); return; }
+        items.push({ itemId, quantity });
+      }
+
+      if (items.length === 0) { showError(errEl, 'Please add at least one item'); return; }
+
+      const btn = document.getElementById('btn-confirm-allocate');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/requests/${id}/allocate`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(errEl, data.error || 'Failed to allocate'); return; }
+        closeModal('allocate');
+        showToast('Items allocated');
+        refreshAll();
+      } catch (err) { showError(errEl, 'Network error'); }
+      finally { btn.disabled = false; }
+    }
+
+    // --- Pickup ---
+    async function submitPickup() {
+      const id = document.getElementById('pickup-request-id').value;
+      const errEl = document.getElementById('pickup-error');
+      const btn = document.getElementById('btn-confirm-pickup');
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/requests/${id}/pickup`, {
+          method: 'PATCH', credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(errEl, data.error || 'Failed to confirm pickup'); return; }
+        closeModal('pickup');
+        showToast('Pickup confirmed');
+        refreshAll();
+      } catch (err) { showError(errEl, 'Network error'); }
+      finally { btn.disabled = false; }
+    }
+
+    // --- Refresh all ---
+    function refreshAll() {
+      fetchPending();
+      fetchApproved();
+      fetchLowStock();
+    }
+
+    // --- Notification badge ---
+    async function updateNotifBadge() {
+      try {
+        const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+        const data = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.count > 0) {
+          badge.textContent = data.count > 99 ? '99+' : data.count;
+          badge.classList.remove('hidden');
+        } else { badge.classList.add('hidden'); }
+      } catch (err) { /* silent */ }
+    }
+
+    // --- Init ---
+    refreshAll();
+    updateNotifBadge();
+    setInterval(refreshAll, 30000);
+    setInterval(updateNotifBadge, 60000);
+  </script>
+</body>
+</html>

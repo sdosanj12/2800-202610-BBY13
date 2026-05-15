@@ -340,15 +340,27 @@ app.get("/client/dashboard", (req, res) => {
 app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
+app.get("/client/notifications", (req, res) => {
+  res.render("notifications", { role: "client", username: req.user.username });
+});
 
 app.use("/admin", sessionValidation, adminAuthorization);
 app.get("/admin/dashboard", (req, res) => {
   res.render("admin-dashboard", { username: req.user.username });
 });
+app.get("/admin/operations", (req, res) => {
+  res.render("admin-operations", { username: req.user.username });
+});
+app.get("/admin/notifications", (req, res) => {
+  res.render("notifications", { role: "admin", username: req.user.username });
+});
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
   res.render("volunteer-dashboard", { username: req.user.username });
+});
+app.get("/volunteer/notifications", (req, res) => {
+  res.render("notifications", { role: "volunteer", username: req.user.username });
 });
 
 /* === Food Request API === */
@@ -404,6 +416,25 @@ app.get(
       return res.status(200).json({ count: requests.length, requests });
     } catch (err) {
       console.error("Fetch pending error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// GET /api/requests/approved — admin views approved requests awaiting pickup
+app.get(
+  "/api/requests/approved",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    try {
+      const requests = await FoodRequest.find({ status: "approved" })
+        .populate("clientId", "username email householdSize dietaryNeeds")
+        .populate("itemsAllocated.itemId", "name category quantity unit")
+        .sort({ approvedAt: 1 });
+      return res.status(200).json({ count: requests.length, requests });
+    } catch (err) {
+      console.error("Fetch approved error:", err.message);
       return res.status(500).json({ error: "Server error" });
     }
   },

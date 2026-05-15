@@ -1,9 +1,55 @@
 <!DOCTYPE html>
-<html>
-<head><title>Volunteer Dashboard</title></head>
-<body>
-  <h1>Welcome, <%= username %></h1>
-  <p>Volunteer Dashboard — placeholder</p>
-  <a href="/logout">Logout</a>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Volunteer Dashboard — Food Bank Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-stone-50 min-h-screen px-4 py-10">
+  <div class="max-w-2xl mx-auto">
+
+    <!-- Header with bell -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Welcome, <%= username %></h1>
+        <p class="text-slate-600">Volunteer Dashboard</p>
+      </div>
+      <a href="/volunteer/notifications" class="relative p-2 text-slate-500 hover:text-slate-700">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span id="notif-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+      </a>
+    </div>
+
+    <!-- Links -->
+    <div class="space-y-4">
+      <a href="/volunteer/notifications" class="block bg-white rounded-2xl shadow-md p-6 hover:shadow-lg transition-shadow">
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Notifications</h2>
+        <p class="text-slate-600 text-sm">View alerts and updates</p>
+      </a>
+    </div>
+
+    <div class="mt-6">
+      <a href="/logout" class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Logout</a>
+    </div>
+  </div>
+
+  <script>
+    async function updateNotifBadge() {
+      try {
+        const res = await fetch('/api/notifications/unread-count', { credentials: 'include' });
+        const data = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.count > 0) {
+          badge.textContent = data.count > 99 ? '99+' : data.count;
+          badge.classList.remove('hidden');
+        } else { badge.classList.add('hidden'); }
+      } catch (err) { /* silent */ }
+    }
+    updateNotifBadge();
+    setInterval(updateNotifBadge, 60000);
+  </script>
 </body>
 </html>

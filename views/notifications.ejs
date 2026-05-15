@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notifications — Food Bank Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes slideOut { to { opacity:0; transform:translateX(100%); height:0; padding:0; margin:0; overflow:hidden; } }
+    .slide-out { animation: slideOut 0.3s ease-in forwards; }
+  </style>
+</head>
+<body class="bg-stone-50 min-h-screen px-4 py-10">
+
+  <div class="max-w-3xl mx-auto fade-in">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Notifications</h1>
+        <p id="unread-summary" class="text-slate-600 text-sm">Loading...</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <button id="btn-mark-all" onclick="markAllRead()" class="text-blue-600 hover:text-blue-800 text-sm font-medium hidden">Mark all as read</button>
+        <a id="back-link" href="/<%= role %>/dashboard" class="text-slate-500 hover:text-slate-700 text-sm font-medium">Back to Dashboard</a>
+      </div>
+    </div>
+
+    <!-- Notification list -->
+    <div id="notif-list" class="space-y-3"></div>
+
+    <!-- Empty state -->
+    <div id="notif-empty" class="hidden text-center py-16">
+      <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-slate-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+      <p class="text-slate-500">No notifications yet.</p>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+  <script>
+    const role = <%- JSON.stringify(role) %>;
+    let notifications = [];
+
+    // --- Utilities ---
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    function timeAgo(dateStr) {
+      const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+      if (seconds < 60) return 'Just now';
+      if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+      return Math.floor(seconds / 86400) + 'd ago';
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-blue-600' };
+      const toast = document.createElement('div');
+      toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-opacity duration-300`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+
+    const typeIcons = {
+      'request-approved': '&#9989;',
+      'request-denied': '&#10060;',
+      'pickup-confirmed': '&#129377;',
+      'pickup-reminder': '&#9200;',
+      'low-stock': '&#9888;&#65039;'
+    };
+
+    // --- Fetch and render ---
+    async function fetchNotifications() {
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'include' });
+        const data = await res.json();
+        notifications = data.notifications || [];
+        renderAll(data.unreadCount || 0);
+      } catch (err) { console.error('fetchNotifications:', err); }
+    }
+
+    function renderAll(unreadCount) {
+      const list = document.getElementById('notif-list');
+      const empty = document.getElementById('notif-empty');
+      const markAllBtn = document.getElementById('btn-mark-all');
+      const summary = document.getElementById('unread-summary');
+
+      summary.textContent = unreadCount > 0
+        ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+        : 'All caught up!';
+
+      if (unreadCount > 0) markAllBtn.classList.remove('hidden');
+      else markAllBtn.classList.add('hidden');
+
+      if (notifications.length === 0) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      list.innerHTML = notifications.map(renderNotification).join('');
+    }
+
+    function renderNotification(n) {
+      const isUnread = !n.read;
+      const icon = typeIcons[n.type] || '&#128276;';
+      const hasTranslation = n.originalMessage && n.language !== 'en';
+
+      return `
+        <div id="notif-${n._id}" class="bg-white rounded-xl shadow-sm p-4 flex items-start gap-3 transition-all ${isUnread ? 'border-l-4 border-blue-500 bg-blue-50/30' : ''}">
+          <div class="text-xl flex-shrink-0 mt-0.5">${icon}</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm text-slate-900 ${isUnread ? 'font-semibold' : ''}" id="notif-msg-${n._id}">${esc(n.message)}</p>
+            ${hasTranslation ? `
+              <button onclick="toggleTranslation('${n._id}')" class="text-xs text-blue-600 hover:text-blue-800 mt-1 underline" id="notif-toggle-${n._id}">
+                Show original (English)
+              </button>` : ''}
+            <p class="text-xs text-slate-400 mt-1">${timeAgo(n.createdAt)}</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            ${isUnread ? `
+              <button onclick="markRead('${n._id}')" title="Mark as read" class="text-blue-500 hover:text-blue-700">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              </button>` : ''}
+            <button onclick="dismissNotif('${n._id}')" title="Dismiss" class="text-slate-400 hover:text-red-500">
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>`;
+    }
+
+    // --- Actions ---
+    async function markRead(id) {
+      try {
+        await fetch(`/api/notifications/${id}/read`, { method: 'PATCH', credentials: 'include' });
+        const n = notifications.find(n => n._id === id);
+        if (n) n.read = true;
+        renderAll(notifications.filter(n => !n.read).length);
+      } catch (err) { showToast('Failed to mark as read', 'error'); }
+    }
+
+    async function markAllRead() {
+      try {
+        await fetch('/api/notifications/read-all', { method: 'PATCH', credentials: 'include' });
+        notifications.forEach(n => n.read = true);
+        renderAll(0);
+        showToast('All marked as read');
+      } catch (err) { showToast('Failed to mark all as read', 'error'); }
+    }
+
+    async function dismissNotif(id) {
+      const el = document.getElementById('notif-' + id);
+      if (el) el.classList.add('slide-out');
+      try {
+        await fetch(`/api/notifications/${id}`, { method: 'DELETE', credentials: 'include' });
+      } catch (err) { /* continue removing from UI */ }
+      setTimeout(() => {
+        notifications = notifications.filter(n => n._id !== id);
+        renderAll(notifications.filter(n => !n.read).length);
+      }, 300);
+    }
+
+    function toggleTranslation(id) {
+      const msgEl = document.getElementById('notif-msg-' + id);
+      const btnEl = document.getElementById('notif-toggle-' + id);
+      const n = notifications.find(n => n._id === id);
+      if (!n) return;
+
+      if (btnEl.textContent.includes('original')) {
+        msgEl.textContent = n.originalMessage;
+        btnEl.textContent = 'Show translated';
+      } else {
+        msgEl.textContent = n.message;
+        btnEl.textContent = 'Show original (English)';
+      }
+    }
+
+    // --- Init ---
+    fetchNotifications();
+  </script>
+</body>
+</html>
