@@ -11,7 +11,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const { connectDB } = require("./databaseConnection");
 const User = require("./models/User");
-const Employee = require("./models/Employee"); // [ADDED FROM ADMIN] Employee model for PIN-based admin auth
+const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
@@ -20,25 +20,11 @@ const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const saltRounds = 12;
 const jwtExpireTime = "24h";
 const jwt_secret = process.env.JWT_SECRET;
-// [ADDED FROM ADMIN] Separate secret for admin (Employee) JWT tokens
 const admin_jwt_secret = process.env.ADMIN_JWT_SECRET || jwt_secret + '_admin';
-
-/*
- * NOTE ON STRUCTURE:
- * Routes are defined inline in this file rather than split into /routes,
- * /controllers, etc.
- *
- * Views (EJS templates) live in /views and are rendered via res.render().
- * Each role (client, admin, volunteer) gets its own dashboard view.
- *
- * The /routes, /controllers, /middleware, /models, /config folders exist
- * for Sprint 3 refactoring if the file gets too long. For Sprint 2, we
- * keep everything here for simplicity and to mirror the instructor's style.
- */
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
@@ -115,7 +101,6 @@ function volunteerOrAdminAuthorization(req, res, next) {
   next();
 }
 
-// [ADDED FROM ADMIN] Admin (Employee) token generation using a separate JWT secret
 function generateAdminToken(employee) {
   return jwt.sign(
     {
@@ -130,7 +115,6 @@ function generateAdminToken(employee) {
   );
 }
 
-// [ADDED FROM ADMIN] Verifies the admin_token cookie (separate from user token)
 function verifyAdminToken(req) {
   const token = req.cookies && req.cookies.admin_token;
   if (!token) return null;
@@ -141,7 +125,6 @@ function verifyAdminToken(req) {
   }
 }
 
-// [ADDED FROM ADMIN] Middleware: populates req.employee from the admin_token cookie
 function adminSessionValidation(req, res, next) {
   const decoded = verifyAdminToken(req);
   if (decoded && decoded.type === "employee") {
@@ -152,7 +135,6 @@ function adminSessionValidation(req, res, next) {
   }
 }
 
-// [ADDED FROM ADMIN] isAdmin checks that the req.employee token was set by adminSessionValidation
 function isAdmin(req) {
   return req.employee && req.employee.type === "employee";
 }
@@ -165,9 +147,6 @@ function adminAuthorization(req, res, next) {
   }
   next();
 }
-
-
-
 
 /* === Public routes === */
 
@@ -234,9 +213,7 @@ app.post("/submitUser", async (req, res) => {
       });
     } else {
       console.error("Signup error:", err.message);
-      res
-        .status(500)
-        .render("errorMessage", { error: "Server error during signup" });
+      res.status(500).render("errorMessage", { error: "Server error during signup" });
     }
   }
 });
@@ -281,9 +258,7 @@ app.post("/login", async (req, res) => {
     }
   } catch (err) {
     console.error("Login error:", err.message);
-    res
-      .status(500)
-      .render("errorMessage", { error: "Server error during login" });
+    res.status(500).render("errorMessage", { error: "Server error during login" });
   }
 });
 
@@ -329,9 +304,7 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       return res.redirect("/login");
     }
 
-    const dashboardRole = user.roles.includes("volunteer")
-        ? "volunteer"
-        : "client";
+    const dashboardRole = user.roles.includes("volunteer") ? "volunteer" : "client";
 
     if (
       user.firstTimeMode === false ||
@@ -340,19 +313,14 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       return res.redirect(`/${dashboardRole}/dashboard`);
     }
 
-    res.render("onboarding", {
-      username: user.username,
-      dashboardRole,
-    });
+    res.render("onboarding", { username: user.username, dashboardRole });
   } catch (err) {
     console.error("Onboarding load error:", err.message);
-    res
-      .status(500)
-      .render("errorMessage", { error: "Could not load onboarding" });
+    res.status(500).render("errorMessage", { error: "Could not load onboarding" });
   }
 });
 
-/* === Protected routes === */
+/* === Client routes === */
 
 app.use("/client", sessionValidation);
 app.get("/client/dashboard", (req, res) => {
@@ -362,28 +330,21 @@ app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
 
-// [REMOVED FROM ADMIN] Old admin route used JWT user session + adminAuthorization.
-// Replaced below by Employee ID + PIN auth (adminSessionValidation + generateAdminToken).
-// The duplicate app.use("/admin", ...) and old dashboard route have been removed.
+/* === Volunteer routes === */
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
   res.render("volunteer-dashboard", { username: req.user.username });
 });
 
-/* === CHANGED: Admin (Employee ID + PIN) routes ===
- * Previously: app.use("/admin", sessionValidation, adminAuthorization)
- *             app.get("/admin/dashboard") rendered with { username: req.user.username }
- *
- * Now: /admin/login accepts an Employee ID (EMP-XXXXXXXX) and PIN instead of
- * a username/password. A separate admin_token cookie is issued. All /admin
- * routes are protected by adminSessionValidation, which populates req.employee
- * (not req.user). The dashboard re-fetches the full Employee record from DB
- * and renders with { employee } instead of { username }.
+/* === Admin routes ===
+ * Public: /admin/login, /admin/logout (no adminSessionValidation)
+ * Protected: all others use adminSessionValidation inline
+ * [CHANGED] Removed app.use("/admin", adminSessionValidation) — caused route
+ * conflicts by stripping the /admin prefix. Middleware now applied per-route.
  */
 
 app.get("/admin/login", (req, res) => {
-  // If already logged in as admin, go straight to dashboard
   const decoded = verifyAdminToken(req);
   if (decoded && decoded.type === "employee") {
     return res.redirect("/admin/dashboard");
@@ -428,7 +389,7 @@ app.post("/admin/login", async (req, res) => {
     await Employee.updateOne({ _id: employee._id }, { lastLogin: new Date() });
 
     const token = generateAdminToken(employee);
-    res.cookie("admin_token", token, { 
+    res.cookie("admin_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000,
@@ -442,28 +403,96 @@ app.post("/admin/login", async (req, res) => {
 });
 
 app.get("/admin/logout", (req, res) => {
-  res.clearCookie("admin_token"); 
+  res.clearCookie("admin_token");
   res.redirect("/admin/login");
 });
 
-
-app.use("/admin", adminSessionValidation);
-
-app.get("/admin/dashboard", async (req, res) => {
+// [CHANGED] Dashboard — active sidebar item is "Dashboard"
+app.get("/admin/dashboard", adminSessionValidation, async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
     if (!employee) return res.redirect("/admin/login");
-    res.render("admin-dashboard", { employee }); 
+    res.render("admin-dashboard", { employee });
   } catch (err) {
     console.error("Dashboard error:", err.message);
     res.status(500).render("errorMessage", { error: "Could not load dashboard" });
   }
 });
 
+// [ADDED] GET /admin/employees — All Employees page
+app.get("/admin/employees", adminSessionValidation, async (req, res) => {
+  try {
+    const employees = await Employee.find().sort({ createdAt: -1 });
+    res.render("admin-employees", { employee: req.employee, employees });
+  } catch (err) {
+    console.error("Employees list error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to load employees" });
+  }
+});
+
+// [ADDED] GET /admin/employees/codes — Add Employee form
+app.get("/admin/employees/codes", adminSessionValidation, (req, res) => {
+  res.render("admin-generate-codes", { employee: req.employee });
+});
+
+// [CHANGED] POST /admin/employees/generate-code — creates a full employee record
+// Previously generated a nameless "Pending" employee with a random PIN.
+// Now accepts name, email, role, department, and PIN from the form.
+app.post("/admin/employees/generate-code", adminSessionValidation, async (req, res) => {
+  try {
+    const { name, email, role, department, pin } = req.body;
+
+    if (!name || !email || !pin) {
+      return res.status(400).json({ error: "Name, email and PIN are required." });
+    }
+
+    if (!/^\d{4,8}$/.test(pin)) {
+      return res.status(400).json({ error: "PIN must be 4–8 digits." });
+    }
+
+    const newEmployee = new Employee({
+      name,
+      email,
+      role: role || "staff",
+      department: department || "General",
+      pin,
+      isActive: true,
+    });
+
+    await newEmployee.save();
+
+    res.json({
+      employeeId:  newEmployee.employeeId,
+      name:        newEmployee.name,
+      email:       newEmployee.email,
+      role:        newEmployee.role,
+      department:  newEmployee.department,
+      pin, // plain PIN returned once before hashing takes effect
+    });
+  } catch (err) {
+    console.error("Generate employee error:", err.message);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "An employee with that email already exists." });
+    }
+    res.status(500).json({ error: "Failed to create employee." });
+  }
+});
+
+// [ADDED] DELETE /admin/employees/:id — delete an employee record
+app.delete("/admin/employees/:id", adminSessionValidation, async (req, res) => {
+  try {
+    const deleted = await Employee.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, error: "Employee not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Employee delete error:", err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
 
 /* === Food Request API === */
 
-// A1: POST /api/requests — client submits a food request
+// POST /api/requests — client submits a food request
 app.post(
   "/api/requests",
   (req, res, next) => {
@@ -501,7 +530,7 @@ app.post(
   },
 );
 
-// GET /api/requests/pending — adminviews all pending requests (FIFO)
+// GET /api/requests/pending — admin views all pending requests (FIFO)
 app.get(
   "/api/requests/pending",
   sessionValidation,
@@ -522,9 +551,7 @@ app.get(
 // GET /api/requests/me — client views their own request history
 app.get("/api/requests/me", sessionValidation, async (req, res) => {
   try {
-    const requests = await FoodRequest.find({ clientId: req.user.userId }).sort(
-      { createdAt: -1 },
-    );
+    const requests = await FoodRequest.find({ clientId: req.user.userId }).sort({ createdAt: -1 });
     return res.status(200).json({ count: requests.length, requests });
   } catch (err) {
     console.error("Fetch my requests error:", err.message);
@@ -532,17 +559,17 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
   }
 });
 
-// GET route to fetch all food requests
+// GET /api/requests — fetch all food requests
 app.get('/api/requests', async (req, res) => {
-    try {
-        const requests = await FoodRequest.find().sort({ createdAt: -1 });
-        res.json(requests);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching requests" });
-    }
+  try {
+    const requests = await FoodRequest.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching requests" });
+  }
 });
 
-// PATCH /api/requests/:id/approve — adminapproves a request
+// PATCH /api/requests/:id/approve — admin approves a request
 app.patch(
   "/api/requests/:id/approve",
   sessionValidation,
@@ -550,15 +577,11 @@ app.patch(
   async (req, res) => {
     const schema = Joi.object({
       pickupDate: Joi.date().greater("now").required(),
-      pickupTime: Joi.string()
-        .pattern(/^([01]\d|2[0-3]):([0-5]\d)$/)
-        .required(),
+      pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
     });
 
     const { error, value } = schema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
       const updated = await FoodRequest.findByIdAndUpdate(
@@ -575,7 +598,6 @@ app.patch(
 
       if (!updated) return res.status(404).json({ error: "Request not found" });
 
-      // Create approval notification for the client
       try {
         const pickupDateStr = new Date(value.pickupDate).toLocaleDateString();
         await Notification.create({
@@ -589,9 +611,7 @@ app.patch(
         console.error("Failed to create approval notification:", notifErr.message);
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request approved", request: updated });
+      return res.status(200).json({ message: "Request approved", request: updated });
     } catch (err) {
       console.error("Approve error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -599,7 +619,7 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/deny — admindenies a request
+// PATCH /api/requests/:id/deny — admin denies a request
 app.patch(
   "/api/requests/:id/deny",
   sessionValidation,
@@ -610,9 +630,7 @@ app.patch(
     });
 
     const { error, value } = schema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
       const updated = await FoodRequest.findByIdAndUpdate(
@@ -628,7 +646,6 @@ app.patch(
 
       if (!updated) return res.status(404).json({ error: "Request not found" });
 
-      // Create denial notification for the client
       try {
         const reason = value.denialReason ? ` Reason: ${value.denialReason}` : "";
         await Notification.create({
@@ -642,9 +659,7 @@ app.patch(
         console.error("Failed to create denial notification:", notifErr.message);
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request denied", request: updated });
+      return res.status(200).json({ message: "Request denied", request: updated });
     } catch (err) {
       console.error("Deny error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -678,25 +693,23 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
-      // Validate each item exists and has enough quantity
       for (const item of value.items) {
         const inventoryItem = await InventoryItem.findById(item.itemId);
         if (!inventoryItem) {
           return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
         }
         if (inventoryItem.quantity < item.quantity) {
-          return res
-            .status(400)
-            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+          return res.status(400).json({
+            error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}`,
+          });
         }
       }
 
-      // Save allocated items on the request (do NOT decrement inventory yet)
       request.itemsAllocated = value.items.map((i) => ({
         itemId: i.itemId,
         quantity: i.quantity,
@@ -727,19 +740,15 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
       if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
-        return res
-          .status(400)
-          .json({ error: "Allocate items before confirming pickup." });
+        return res.status(400).json({ error: "Allocate items before confirming pickup." });
       }
 
-      // Decrement inventory for each allocated item
-      // Note: partial-failure is acceptable for COMP 2800 scope (no transactions)
       for (const allocation of request.itemsAllocated) {
         const item = await InventoryItem.findById(allocation.itemId);
         if (!item) {
@@ -755,9 +764,8 @@ app.patch(
 
         const oldStatus = item.status;
         item.quantity -= allocation.quantity;
-        await item.save(); // pre-save hook fires, auto-updates status
+        await item.save();
 
-        // Fire low-stock/out-of-stock notification if status transitioned
         try {
           const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
           const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
@@ -779,11 +787,9 @@ app.patch(
         }
       }
 
-      // Mark request as picked-up
       request.status = "picked-up";
       await request.save();
 
-      // Create pickup-confirmed notification for the client
       try {
         await Notification.create({
           userId: request.clientId,
@@ -811,44 +817,40 @@ app.patch(
 
 /* === Inventory API === */
 
+// POST /api/inventory — admin adds an inventory item
+app.post("/api/inventory", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).required(),
+    category: Joi.string()
+      .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
+      .required(),
+    quantity: Joi.number().min(0).required(),
+    unit: Joi.string()
+      .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
+      .required(),
+    expiryDate: Joi.date().greater("now").optional(),
+    storageLocation: Joi.string()
+      .valid("shelf", "fridge", "freezer", "pantry")
+      .optional(),
+    notes: Joi.string().max(500).allow("").optional(),
+  });
 
-app.post(
-  "/api/inventory",
-  adminSessionValidation,
-  async (req, res) => {
-    const schema = Joi.object({
-      name: Joi.string().min(3).max(100).required(),
-      category: Joi.string()
-        .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
-        .required(),
-      quantity: Joi.number().min(0).required(),
-      unit: Joi.string()
-        .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
-        .required(),
-      expiryDate: Joi.date().greater("now").optional(),
-      storageLocation: Joi.string()
-        .valid("shelf", "fridge", "freezer", "pantry")
-        .optional(),
-      notes: Joi.string().max(500).allow("").optional(),
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const item = await InventoryItem.create({
+      ...value,
+      addedBy: req.employee.employeeDbId,
     });
+    return res.status(201).json({ message: "Item added", item });
+  } catch (err) {
+    console.error("Inventory create error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-
-    try {
-      const item = await InventoryItem.create({
-        ...value,
-        addedBy: req.employee.employeeDbId, 
-      });
-      return res.status(201).json({ message: "Item added", item });
-    } catch (err) {
-      console.error("Inventory create error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
-
-// GET /api/inventory — any authed user, supports ?status, ?category, ?expiringSoon=true (unchanged)
+// GET /api/inventory — any authed user
 app.get("/api/inventory", sessionValidation, async (req, res) => {
   try {
     const filter = {};
@@ -866,7 +868,6 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
 
     let result = items.map((i) => i.toObject());
 
-    // Optionally include allocated quantities across approved (not yet picked-up) requests
     if (req.query.includeAllocated === "true") {
       const allocations = await FoodRequest.aggregate([
         { $match: { status: "approved" } },
@@ -898,110 +899,94 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
 });
 
 // GET /api/inventory/low-stock — admin dashboard view
-app.get(
-  "/api/inventory/low-stock",
-  adminSessionValidation,
-  async (req, res) => {
+app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => {
+  try {
+    const items = await InventoryItem.find({
+      status: { $in: ["low-stock", "out-of-stock"] },
+    })
+      .populate("addedBy", "username")
+      .sort({ name: 1 });
+    return res.status(200).json({ count: items.length, items });
+  } catch (err) {
+    console.error("Low-stock fetch error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/inventory/:id — admin updates an inventory item
+app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).optional(),
+    category: Joi.string()
+      .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
+      .optional(),
+    quantity: Joi.number().min(0).optional(),
+    unit: Joi.string()
+      .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
+      .optional(),
+    expiryDate: Joi.date().optional(),
+    storageLocation: Joi.string()
+      .valid("shelf", "fridge", "freezer", "pantry")
+      .optional(),
+    notes: Joi.string().max(500).allow("").optional(),
+  }).min(1);
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+
+    const oldStatus = item.status;
+    Object.assign(item, value);
+    await item.save();
+
     try {
-      const items = await InventoryItem.find({
-        status: { $in: ["low-stock", "out-of-stock"] },
-      })
-        .populate("addedBy", "username")
-        .sort({ name: 1 });
-      return res.status(200).json({ count: items.length, items });
-    } catch (err) {
-      console.error("Low-stock fetch error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
-
-
-app.patch(
-  "/api/inventory/:id",
-  adminSessionValidation,
-  async (req, res) => {
-    const schema = Joi.object({
-      name: Joi.string().min(3).max(100).optional(),
-      category: Joi.string()
-        .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
-        .optional(),
-      quantity: Joi.number().min(0).optional(),
-      unit: Joi.string()
-        .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
-        .optional(),
-      expiryDate: Joi.date().optional(),
-      storageLocation: Joi.string()
-        .valid("shelf", "fridge", "freezer", "pantry")
-        .optional(),
-      notes: Joi.string().max(500).allow("").optional(),
-    }).min(1);
-
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-
-    try {
-      const item = await InventoryItem.findById(req.params.id);
-      if (!item) return res.status(404).json({ error: "Item not found" });
-
-      const oldStatus = item.status;
-      Object.assign(item, value);
-      await item.save();
-
-      // Notify admin users on transition into low-stock or out-of-stock
-      try {
-        const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
-        const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
-        if (isNowLowOrOut && !wasLowOrOut) {
-          const adminUsers = await Employee.find({ isActive: true }).select("_id").lean();
-          const notifications = adminUsers.map((u) => ({
-            userId: u._id,
-            type: "low-stock",
-            message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
-            relatedId: item._id,
-            relatedType: "InventoryItem",
-          }));
-          if (notifications.length > 0) {
-            await Notification.insertMany(notifications);
-          }
+      const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+      const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
+      if (isNowLowOrOut && !wasLowOrOut) {
+        const adminUsers = await Employee.find({ isActive: true }).select("_id").lean();
+        const notifications = adminUsers.map((u) => ({
+          userId: u._id,
+          type: "low-stock",
+          message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+          relatedId: item._id,
+          relatedType: "InventoryItem",
+        }));
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications);
         }
-      } catch (notifErr) {
-        console.error("Failed to create low-stock notification:", notifErr.message);
       }
-
-      return res.status(200).json({ message: "Item updated", item });
-    } catch (err) {
-      console.error("Inventory update error:", err.message);
-      return res.status(500).json({ error: "Server error" });
+    } catch (notifErr) {
+      console.error("Failed to create low-stock notification:", notifErr.message);
     }
-  },
-);
 
-app.delete(
-  "/api/inventory/:id",
-  adminSessionValidation,
-  async (req, res) => {
-    try {
-      const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Item not found" });
-      return res
-        .status(200)
-        .json({ message: "Item deleted", deletedId: deleted._id });
-    } catch (err) {
-      console.error("Inventory delete error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
+    return res.status(200).json({ message: "Item updated", item });
+  } catch (err) {
+    console.error("Inventory update error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-/* === User Preferences API (Pop-Up Challenge) === */
+// DELETE /api/inventory/:id — admin deletes an inventory item
+app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
+  try {
+    const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Item not found" });
+    return res.status(200).json({ message: "Item deleted", deletedId: deleted._id });
+  } catch (err) {
+    console.error("Inventory delete error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-// C1: GET /api/user/preferences — returns firstTimeMode + hintsSeen
+/* === User Preferences API === */
+
+// GET /api/user/preferences
 app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select(
-      "firstTimeMode hintsSeen",
-    );
+    const user = await User.findById(req.user.userId).select("firstTimeMode hintsSeen");
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.status(200).json({
       firstTimeMode: user.firstTimeMode,
@@ -1013,7 +998,7 @@ app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   }
 });
 
-// C2: PATCH /api/user/preferences — toggle firstTimeMode OR add a hint to hintsSeen
+// PATCH /api/user/preferences
 app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
   const schema = Joi.object({
     firstTimeMode: Joi.boolean(),
@@ -1089,22 +1074,17 @@ const aiOutputSchema = Joi.object({
   warnings: Joi.array().items(Joi.string()).default([]),
 });
 
-// POST /api/ai/parse-request — AI parses natural-language description into structured request data
+// POST /api/ai/parse-request
 app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
   const inputSchema = Joi.object({
     description: Joi.string().min(10).max(2000).required(),
   });
 
   const { error, value } = inputSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
+  if (error) return res.status(400).json({ error: error.details[0].message });
 
   try {
-    // Card 1C: Fetch previous requests for personalization
-    const previousRequests = await FoodRequest.find({
-      clientId: req.user.userId,
-    })
+    const previousRequests = await FoodRequest.find({ clientId: req.user.userId })
       .sort({ createdAt: -1 })
       .limit(3)
       .select("householdSize dietaryNeeds notes clientNotes")
@@ -1131,70 +1111,46 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     });
 
     let rawText = result.response.text();
-
-    // Strip markdown code fences if present
-    rawText = rawText
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
     let parsed;
     try {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error("AI returned invalid JSON:", rawText);
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error: "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     const { error: validationError, value: validatedOutput } =
       aiOutputSchema.validate(parsed, { stripUnknown: true });
     if (validationError) {
-      console.error(
-        "AI output failed validation:",
-        validationError.details,
-        "Raw:",
-        parsed,
-      );
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      console.error("AI output failed validation:", validationError.details, "Raw:", parsed);
+      return res.status(502).json({
+        error: "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     return res.status(200).json({
       parsed: validatedOutput,
-      meta: {
-        model: "gemini-2.5-flash",
-        usedPreviousRequests,
-      },
+      meta: { model: "gemini-2.5-flash", usedPreviousRequests },
     });
   } catch (err) {
     console.error("AI parse-request error:", err.message);
-    return res
-      .status(500)
-      .json({
-        error:
-          "Something went wrong with the AI assistant. Please try again later.",
-      });
+    return res.status(500).json({
+      error: "Something went wrong with the AI assistant. Please try again later.",
+    });
   }
 });
 
 /* === Notifications API === */
 
-// GET /api/notifications — current user's notifications
+// GET /api/notifications
 app.get('/api/notifications', sessionValidation, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
-    if (req.query.unreadOnly === 'true') {
-      filter.read = false;
-    }
+    if (req.query.unreadOnly === 'true') filter.read = false;
 
     let limit = parseInt(req.query.limit, 10);
     if (isNaN(limit) || limit < 1) limit = 50;
@@ -1206,7 +1162,6 @@ app.get('/api/notifications', sessionValidation, async (req, res) => {
       .lean();
 
     const unreadCount = await Notification.countDocuments({ userId: req.user.userId, read: false });
-
     return res.status(200).json({ notifications, unreadCount });
   } catch (err) {
     console.error('Fetch notifications error:', err.message);
@@ -1214,7 +1169,7 @@ app.get('/api/notifications', sessionValidation, async (req, res) => {
   }
 });
 
-// GET /api/notifications/unread-count — lightweight badge count
+// GET /api/notifications/unread-count
 app.get('/api/notifications/unread-count', sessionValidation, async (req, res) => {
   try {
     const count = await Notification.countDocuments({ userId: req.user.userId, read: false });
@@ -1225,7 +1180,7 @@ app.get('/api/notifications/unread-count', sessionValidation, async (req, res) =
   }
 });
 
-// PATCH /api/notifications/read-all — mark all unread as read
+// PATCH /api/notifications/read-all
 app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => {
   try {
     const result = await Notification.updateMany(
@@ -1239,7 +1194,7 @@ app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => 
   }
 });
 
-// PATCH /api/notifications/:id/read — mark single notification as read
+// PATCH /api/notifications/:id/read
 app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
@@ -1247,7 +1202,6 @@ app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => 
     if (notification.userId.toString() !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-
     notification.read = true;
     await notification.save();
     return res.status(200).json({ notification });
@@ -1257,7 +1211,7 @@ app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => 
   }
 });
 
-// DELETE /api/notifications/:id — dismiss a notification
+// DELETE /api/notifications/:id
 app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
@@ -1265,7 +1219,6 @@ app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
     if (notification.userId.toString() !== req.user.userId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-
     await notification.deleteOne();
     return res.sendStatus(204);
   } catch (err) {
@@ -1274,7 +1227,7 @@ app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
   }
 });
 
-/* === Static + 404 === */
+/* === 404 catch-all === */
 
 app.use((req, res) => {
   res.status(404);
@@ -1294,7 +1247,6 @@ connectDB()
     process.exit(1);
   });
 
-// Catch silent crashes
 process.on("unhandledRejection", (reason, promise) => {
   console.error("UNHANDLED REJECTION:", reason);
 });
