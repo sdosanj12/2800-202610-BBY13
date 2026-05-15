@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const mongoSanitizer = require("mongo-sanitizer").default;
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -41,8 +43,44 @@ app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
+
+// CSP is disabled because the demo uses Tailwind CDN and inline scripts in EJS templates.
+// For production, define an explicit CSP policy that whitelists only required sources.
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+
+/* === Rate limiting === */
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per IP
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/login", authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/submitUser", authLimiter);
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
+  message: {
+    error:
+      "AI assistant temporarily unavailable due to high usage. Please try again later or fill out the form manually.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by authenticated user if logged in, fall back to IP
+    return req.user?.userId || req.ip;
+  },
+});
+
+app.use("/api/ai/parse-request", aiLimiter);
 
 /* === Auth helpers === */
 
