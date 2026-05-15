@@ -50,7 +50,19 @@ const foodRequestSchema = new mongoose.Schema(
     denialReason: {
       type: String,
       maxlength: 500
-    }
+    },
+    itemsAllocated: [{
+      itemId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'InventoryItem',
+        required: true
+      },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1
+      }
+    }]
   },
   { timestamps: true }
 );

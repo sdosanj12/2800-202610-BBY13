@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['request-approved', 'request-denied', 'pickup-reminder', 'low-stock'],
+      enum: ['request-approved', 'request-denied', 'pickup-reminder', 'low-stock', 'pickup-confirmed'],
       required: true
     },
     message: {

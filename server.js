@@ -523,6 +523,163 @@ app.patch(
   },
 );
 
+// PATCH /api/requests/:id/allocate — admin allocates inventory items to an approved request
+app.patch(
+  "/api/requests/:id/allocate",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    const schema = Joi.object({
+      items: Joi.array()
+        .items(
+          Joi.object({
+            itemId: Joi.string().required(),
+            quantity: Joi.number().integer().min(1).required(),
+          })
+        )
+        .min(1)
+        .required(),
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.status(400).json({ error: error.details[0].message });
+
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      // Validate each item exists and has enough quantity
+      for (const item of value.items) {
+        const inventoryItem = await InventoryItem.findById(item.itemId);
+        if (!inventoryItem) {
+          return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
+        }
+        if (inventoryItem.quantity < item.quantity) {
+          return res
+            .status(400)
+            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+        }
+      }
+
+      // Save allocated items on the request (do NOT decrement inventory yet)
+      request.itemsAllocated = value.items.map((i) => ({
+        itemId: i.itemId,
+        quantity: i.quantity,
+      }));
+      await request.save();
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Items allocated", request: updated });
+    } catch (err) {
+      console.error("Allocate error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// PATCH /api/requests/:id/pickup — admin confirms pickup and decrements inventory
+app.patch(
+  "/api/requests/:id/pickup",
+  sessionValidation,
+  adminAuthorization,
+  async (req, res) => {
+    try {
+      const request = await FoodRequest.findById(req.params.id);
+      if (!request) return res.status(404).json({ error: "Request not found" });
+
+      if (request.status !== "approved") {
+        return res
+          .status(400)
+          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+      }
+
+      if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "Allocate items before confirming pickup." });
+      }
+
+      // Decrement inventory for each allocated item
+      // Note: partial-failure is acceptable for COMP 2800 scope (no transactions)
+      for (const allocation of request.itemsAllocated) {
+        const item = await InventoryItem.findById(allocation.itemId);
+        if (!item) {
+          console.error(`Pickup: inventory item ${allocation.itemId} not found, skipping`);
+          continue;
+        }
+
+        if (item.quantity < allocation.quantity) {
+          return res.status(409).json({
+            error: `Conflict: '${item.name}' now has ${item.quantity} ${item.unit} but ${allocation.quantity} were allocated. Inventory may have changed since allocation.`,
+          });
+        }
+
+        const oldStatus = item.status;
+        item.quantity -= allocation.quantity;
+        await item.save(); // pre-save hook fires, auto-updates status
+
+        // Fire low-stock/out-of-stock notification if status transitioned
+        try {
+          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+          const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
+          if (isNowLowOrOut && !wasLowOrOut) {
+            const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+            const notifications = adminUsers.map((u) => ({
+              userId: u._id,
+              type: "low-stock",
+              message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+              relatedId: item._id,
+              relatedType: "InventoryItem",
+            }));
+            if (notifications.length > 0) {
+              await Notification.insertMany(notifications);
+            }
+          }
+        } catch (notifErr) {
+          console.error("Failed to create low-stock notification during pickup:", notifErr.message);
+        }
+      }
+
+      // Mark request as picked-up
+      request.status = "picked-up";
+      await request.save();
+
+      // Create pickup-confirmed notification for the client
+      try {
+        await Notification.create({
+          userId: request.clientId,
+          type: "pickup-confirmed",
+          message: "Your food request pickup has been confirmed. Thank you!",
+          relatedId: request._id,
+          relatedType: "FoodRequest",
+        });
+      } catch (notifErr) {
+        console.error("Failed to create pickup-confirmed notification:", notifErr.message);
+      }
+
+      const updated = await FoodRequest.findById(request._id).populate(
+        "itemsAllocated.itemId",
+        "name category quantity unit"
+      );
+
+      return res.status(200).json({ message: "Pickup confirmed", request: updated });
+    } catch (err) {
+      console.error("Pickup error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
 /* === Inventory API === */
 
 // POST /api/inventory — adminadds an item
@@ -579,7 +736,33 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
       .populate("addedBy", "username")
       .sort({ expiryDate: 1, name: 1 });
 
-    return res.status(200).json({ count: items.length, items });
+    let result = items.map((i) => i.toObject());
+
+    // Optionally include allocated quantities across approved (not yet picked-up) requests
+    if (req.query.includeAllocated === "true") {
+      const allocations = await FoodRequest.aggregate([
+        { $match: { status: "approved" } },
+        { $unwind: "$itemsAllocated" },
+        {
+          $group: {
+            _id: "$itemsAllocated.itemId",
+            allocatedQuantity: { $sum: "$itemsAllocated.quantity" },
+          },
+        },
+      ]);
+
+      const allocMap = {};
+      for (const a of allocations) {
+        allocMap[a._id.toString()] = a.allocatedQuantity;
+      }
+
+      result = result.map((item) => ({
+        ...item,
+        allocatedQuantity: allocMap[item._id.toString()] || 0,
+      }));
+    }
+
+    return res.status(200).json({ count: result.length, items: result });
   } catch (err) {
     console.error("Inventory fetch error:", err.message);
     return res.status(500).json({ error: "Server error" });
