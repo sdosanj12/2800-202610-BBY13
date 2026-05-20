@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Request Food | Food Bank Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Lexend+Deca:wght@100..900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <header id="navbar-container"></header>
+
+    <main class="container">
+        <section class="card">
+            <h1>Food Request Form</h1>
+            <p>Please fill out the details below to help us prepare your package accurately.</p>
+            
+            <form id="food-request-form" action="/submit-request" method="POST">
+                
+                <div class="form-group">
+                    <label for="household-size">Household Size</label>
+                    <select id="household-size" name="household-size">
+                        <option value="">Select size...</option>
+                        <option value="small">Small (1-2 people)</option>
+                        <option value="medium">Medium (3-4 people)</option>
+                        <option value="large">Large (5+ people)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Dietary Needs / Restrictions</label>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="halal" name="diet" value="halal">
+                        <label for="halal">Halal</label><br>
+                        <input type="checkbox" id="vegan" name="diet" value="vegan">
+                        <label for="vegan">Vegan/Vegetarian</label><br>
+                        <input type="checkbox" id="gluten-free" name="diet" value="gluten-free">
+                        <label for="gluten-free">Gluten-Free</label><br>
+                        <input type="checkbox" id="dairy-free" name="diet" value="dairy-free">
+                        <label for="dairy-free">Dairy-Free</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Pickup Location (Vancouver BC)</label>
+                    <select id="location" name="location">
+                        <option value="">Select a location...</option>
+                        <option value="east-van">East Vancouver Hub</option>
+                        <option value="kitsilano">Kitsilano Community Center</option>
+                        <option value="downtown">Downtown Eastside Annex</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="pickup-date">Preferred Pickup Date</label>
+                    <input type="date" id="pickup-date" name="pickup-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="pickup-time">Preferred Time Slot</label>
+                    <input type="time" id="pickup-time" name="pickup-time" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Submit Request</button>
+                    <button type="reset" class="btn-secondary">Clear Form</button>
+                </div>
+
+            </form>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div id="footer-container"></div>
+    </footer>
+
+    <script src="navbar.js"></script>
+    <script src="footer.js"></script>
+
+</body>
+
+</html>

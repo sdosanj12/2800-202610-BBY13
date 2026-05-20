@@ -17,6 +17,8 @@ const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
 
+const protect = require("./middleware/auth");
+
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
@@ -40,7 +42,7 @@ const jwt_secret = process.env.JWT_SECRET;
  */
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -174,6 +176,11 @@ async function translateText(text, targetLanguage) {
 
 app.get("/", (req, res) => {
   res.render("index");
+});
+
+// food request ejs page
+app.get('/request', (req, res) => {
+    res.render('request'); 
 });
 
 app.get("/about", (req, res) => {
@@ -355,6 +362,19 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       .status(500)
       .render("errorMessage", { error: "Could not load onboarding" });
   }
+});
+
+// This looks at the food request form submission
+app.post('/submit-request', (req, res) => {
+    
+    // 1. Capture the data (optional)
+    const formData = req.body; 
+
+    // 2. Create your reference ID
+    const ref = "FB-" + Math.floor(Math.random() * 100000);
+
+    // 3. THE TRIGGER: Send the confirmation page back to the browser
+    res.render('confirmation', { referenceId: ref });
 });
 
 /* === Protected routes === */
@@ -1242,6 +1262,113 @@ app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
   } catch (err) {
     console.error('Delete notification error:', err.message);
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// SAVE SETTINGS TO USER PROFILE
+app.post("/api/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        householdSize,
+        allergies,
+        dietaryRestrictions
+      },
+      {
+        new: true
+      }
+    );
+
+    res.json({
+      success: true,
+      user: updatedUser
+    });
+
+  } catch (err) {
+
+    console.error("Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+});
+// PROFILE PAGE
+app.get("/profile", protect, async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+      user: {},
+      error: "Failed to load profile"
+    });
+  }
+});
+
+
+// SAVE PROFILE
+app.post("/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    await User.findByIdAndUpdate(req.user._id, {
+
+      householdSize,
+
+      allergies: allergies || [],
+
+      dietaryRestrictions: dietaryRestrictions || []
+
+    });
+
+    const updatedUser =
+      await User.findById(req.user._id);
+
+    res.render("profile", {
+
+      user: updatedUser,
+
+      success: "Profile updated successfully"
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+
+      user: req.user,
+
+      error: "Failed to update profile"
+
+    });
   }
 });
 
