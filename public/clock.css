@@ -1,0 +1,373 @@
+/* Clock In/Out System Styles */
+
+.clock-in-section {
+  min-height: calc(100vh - 200px);
+  padding: 20px 0;
+}
+
+/* Card Styles */
+.card {
+  border-radius: 16px;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Clock Icon */
+.clock-icon i {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+/* Current Time Display */
+.current-time-display {
+  border-left: 4px solid #198754;
+}
+
+.current-time {
+  font-family: "Courier New", monospace;
+  letter-spacing: 2px;
+}
+
+/* Timer Display */
+.timer-container {
+  margin: 30px 0;
+}
+
+.timer-display {
+  font-size: 4rem;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+  color: #198754;
+  letter-spacing: 8px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.timer-display .separator {
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+.timer-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.timer-sublabel {
+  font-size: 0.85rem;
+}
+
+/* Status Indicator */
+.status-indicator {
+  position: relative;
+}
+
+.pulse {
+  animation: pulse-badge 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-badge {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.pulse::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Clocked In Card */
+.clocked-in-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+/* Clock In Time Display */
+.clock-in-time {
+  border-left: 4px solid #198754;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Stat Boxes */
+.stat-box {
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  border-color: #198754;
+  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.1);
+}
+
+.stat-box i {
+  font-size: 2rem;
+}
+
+/* Buttons */
+.btn-lg {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(25, 135, 84, 0.3);
+}
+
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+}
+
+.btn-outline-secondary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #000;
+}
+
+.btn-warning:hover {
+  background-color: #ffb300;
+  border-color: #ffb300;
+  color: #000;
+}
+
+/* Form Controls */
+.form-control-lg {
+  border-radius: 12px;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.form-control-lg:focus {
+  border-color: #198754;
+  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.15);
+}
+
+/* Shift History */
+.shift-history {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.list-group-item {
+  border: 1px solid #e9ecef;
+  border-radius: 8px !important;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Shift Details */
+.shift-details {
+  padding: 10px 0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row.total-row {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  border: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #6c757d;
+}
+
+.detail-value {
+  color: #212529;
+}
+
+/* Card Header */
+.card-header h3 {
+  font-weight: 600;
+  color: #212529;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .timer-display {
+    font-size: 2.5rem;
+    letter-spacing: 4px;
+  }
+
+  .btn-lg {
+    font-size: 1rem;
+    padding: 12px 24px !important;
+  }
+
+  .stat-box {
+    margin-bottom: 10px;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .detail-value {
+    text-align: left;
+  }
+}
+
+@media (max-width: 576px) {
+  .timer-display {
+    font-size: 2rem;
+    letter-spacing: 2px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .lead {
+    font-size: 1rem;
+  }
+}
+
+/* Scrollbar Styling */
+.shift-history::-webkit-scrollbar {
+  width: 8px;
+}
+
+.shift-history::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.shift-history::-webkit-scrollbar-thumb {
+  background: #198754;
+  border-radius: 10px;
+}
+
+.shift-history::-webkit-scrollbar-thumb:hover {
+  background: #157347;
+}
+
+/* Loading Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.loading {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(
+    to right,
+    #f6f7f8 0%,
+    #edeef1 20%,
+    #f6f7f8 40%,
+    #f6f7f8 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Success States */
+.text-success {
+  color: #198754 !important;
+}
+
+.bg-success {
+  background-color: #198754 !important;
+}
+
+.border-success {
+  border-color: #198754 !important;
+}
+
+/* Print Styles */
+@media print {
+  .btn,
+  .navbar-container,
+  .footer,
+  .status-indicator {
+    display: none;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+
+  .timer-display {
+    color: #000 !important;
+  }
+}
