@@ -258,43 +258,53 @@
     </div>
     <div class="topbar-right">
       <a href="/admin/export" class="btn">Export Report</a>
-      <a href="/admin/employees/new" class="btn btn-primary">+ Add Employee</a>
+      <a href="/admin/employees/codes" class="btn btn-primary">+ Add Employee</a>
     </div>
   </div>
 
   <div class="layout">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="sidebar-section">
-        <div class="sidebar-label">Inventory</div>
-        <a href="/admin/inventory" class="sidebar-link">
-          <span class="icon">📦</span> All Items
-        </a>
-        <a href="/admin/inventory/history" class="sidebar-link">
-          <span class="icon">📋</span> History &amp; Audit Log
-        </a>
-        <a href="/admin/inventory/alerts" class="sidebar-link">
-          <span class="icon">⚠️</span> Low Stock Alerts
-        </a>
-      </div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">Employees</div>
-        <a href="/admin/employees" class="sidebar-link active">
-          <span class="icon">👥</span> All Employees
-        </a>
-        <a href="/admin/employees/codes" class="sidebar-link">
-          <span class="icon">🔑</span> Generate Codes
-        </a>
-      </div>
+    <!-- [ADDED] New "Overview" section with Dashboard as the active link -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <a href="/admin/dashboard" class="sidebar-link active">
+        <span class="icon">📊</span> Dashboard
+      </a>
+    </div>
 
-      <div class="sidebar-bottom">
-        <strong><%= employee.name %></strong>
-        <%= employee.employeeId %><br />
-        <a href="/admin/logout">Log out</a>
-      </div>
-    </aside>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Inventory</div>
+      <a href="/admin/inventory" class="sidebar-link">
+        <span class="icon">📦</span> All Items
+      </a>
+      <a href="/admin/inventory/history" class="sidebar-link">
+        <span class="icon">📋</span> History &amp; Audit Log
+      </a>
+      <a href="/admin/inventory/alerts" class="sidebar-link">
+        <span class="icon">⚠️</span> Low Stock Alerts
+      </a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Employees</div>
+      <!-- [CHANGED] Removed class "active" from this link — it was incorrectly highlighted -->
+      <a href="/admin/employees" class="sidebar-link">
+        <span class="icon">👥</span> All Employees
+      </a>
+      <a href="/admin/employees/codes" class="sidebar-link">
+        <span class="icon">🔑</span> Generate Codes
+      </a>
+    </div>
+
+    <div class="sidebar-bottom">
+      <strong><%= employee.name %></strong>
+      <%= employee.employeeId %><br />
+      <a href="/admin/logout">Log out</a>
+    </div>
+  </aside>
 
     <!-- MAIN CONTENT -->
     <main class="content">
