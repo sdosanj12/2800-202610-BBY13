@@ -29,6 +29,14 @@ const notificationSchema = new mongoose.Schema(
     relatedType: {
       type: String,
       enum: ['FoodRequest', 'InventoryItem']
+    },
+    language: {
+      type: String,
+      default: 'en'
+    },
+    originalMessage: {
+      type: String,
+      maxlength: 500
     }
   },
   { timestamps: true }

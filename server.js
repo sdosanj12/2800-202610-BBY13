@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const mongoSanitizer = require("mongo-sanitizer").default;
 const cookieParser = require("cookie-parser");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -15,6 +17,8 @@ const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
+
+const protect = require("./middleware/auth");
 
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
@@ -27,11 +31,35 @@ const jwt_secret = process.env.JWT_SECRET;
 const admin_jwt_secret = process.env.ADMIN_JWT_SECRET || jwt_secret + '_admin';
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// CSP is disabled because the demo uses Tailwind CDN and inline scripts in EJS templates.
+// For production, define an explicit CSP policy that whitelists only required sources.
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+
+/* === Rate limiting === */
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
+  message: {
+    error:
+      "AI assistant temporarily unavailable due to high usage. Please try again later or fill out the form manually.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Rate limit by authenticated user if logged in, fall back to IP
+    return req.user?.userId || req.ip;
+  },
+});
+
+app.use("/api/ai/parse-request", aiLimiter);
 
 /* === Auth helpers === */
 
@@ -148,10 +176,34 @@ function adminAuthorization(req, res, next) {
   next();
 }
 
+/* === Translation helper === */
+
+async function translateText(text, targetLanguage) {
+  if (!targetLanguage || targetLanguage === "en") return text;
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: { temperature: 0 },
+    });
+    const result = await model.generateContent(
+      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`,
+    );
+    return result.response.text().trim();
+  } catch (err) {
+    console.error("Translation failed, returning original:", err.message);
+    return text;
+  }
+}
+
 /* === Public routes === */
 
 app.get("/", (req, res) => {
   res.render("index");
+});
+
+// food request ejs page
+app.get("/request", (req, res) => {
+  res.render("request");
 });
 
 app.get("/about", (req, res) => {
@@ -320,7 +372,19 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
   }
 });
 
-/* === Client routes === */
+// This looks at the food request form submission
+app.post("/submit-request", (req, res) => {
+  // 1. Capture the data (optional)
+  const formData = req.body;
+
+  // 2. Create your reference ID
+  const ref = "FB-" + Math.floor(Math.random() * 100000);
+
+  // 3. THE TRIGGER: Send the confirmation page back to the browser
+  res.render("confirmation", { referenceId: ref });
+});
+
+/* === Protected routes === */
 
 app.use("/client", sessionValidation);
 app.get("/client/dashboard", (req, res) => {
@@ -334,7 +398,13 @@ app.get("/client/ai-request", (req, res) => {
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
-  res.render("volunteer-dashboard", { username: req.user.username });
+  res.render("volunteer-dashboard", {
+    username: req.user.username,
+    totalHours: 0,
+    weeklyHours: 0,
+    upcomingShifts: 0,
+    recentActivity: [],
+  });
 });
 
 /* === Admin routes ===
@@ -559,8 +629,8 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
   }
 });
 
-// GET /api/requests — fetch all food requests
-app.get('/api/requests', async (req, res) => {
+// GET route to fetch all food requests
+app.get("/api/requests", async (req, res) => {
   try {
     const requests = await FoodRequest.find().sort({ createdAt: -1 });
     res.json(requests);
@@ -608,7 +678,10 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create approval notification:", notifErr.message);
+        console.error(
+          "Failed to create approval notification:",
+          notifErr.message,
+        );
       }
 
       return res.status(200).json({ message: "Request approved", request: updated });
@@ -647,7 +720,9 @@ app.patch(
       if (!updated) return res.status(404).json({ error: "Request not found" });
 
       try {
-        const reason = value.denialReason ? ` Reason: ${value.denialReason}` : "";
+        const reason = value.denialReason
+          ? ` Reason: ${value.denialReason}`
+          : "";
         await Notification.create({
           userId: updated.clientId,
           type: "request-denied",
@@ -656,7 +731,10 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create denial notification:", notifErr.message);
+        console.error(
+          "Failed to create denial notification:",
+          notifErr.message,
+        );
       }
 
       return res.status(200).json({ message: "Request denied", request: updated });
@@ -679,7 +757,7 @@ app.patch(
           Joi.object({
             itemId: Joi.string().required(),
             quantity: Joi.number().integer().min(1).required(),
-          })
+          }),
         )
         .min(1)
         .required(),
@@ -701,7 +779,9 @@ app.patch(
       for (const item of value.items) {
         const inventoryItem = await InventoryItem.findById(item.itemId);
         if (!inventoryItem) {
-          return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
+          return res
+            .status(404)
+            .json({ error: `Inventory item '${item.itemId}' not found` });
         }
         if (inventoryItem.quantity < item.quantity) {
           return res.status(400).json({
@@ -718,10 +798,12 @@ app.patch(
 
       const updated = await FoodRequest.findById(request._id).populate(
         "itemsAllocated.itemId",
-        "name category quantity unit"
+        "name category quantity unit",
       );
 
-      return res.status(200).json({ message: "Items allocated", request: updated });
+      return res
+        .status(200)
+        .json({ message: "Items allocated", request: updated });
     } catch (err) {
       console.error("Allocate error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -752,7 +834,9 @@ app.patch(
       for (const allocation of request.itemsAllocated) {
         const item = await InventoryItem.findById(allocation.itemId);
         if (!item) {
-          console.error(`Pickup: inventory item ${allocation.itemId} not found, skipping`);
+          console.error(
+            `Pickup: inventory item ${allocation.itemId} not found, skipping`,
+          );
           continue;
         }
 
@@ -767,10 +851,14 @@ app.patch(
         await item.save();
 
         try {
-          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(
+            item.status,
+          );
           const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
           if (isNowLowOrOut && !wasLowOrOut) {
-            const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+            const adminUsers = await User.find({ roles: "admin" })
+              .select("_id")
+              .lean();
             const notifications = adminUsers.map((u) => ({
               userId: u._id,
               type: "low-stock",
@@ -783,37 +871,95 @@ app.patch(
             }
           }
         } catch (notifErr) {
-          console.error("Failed to create low-stock notification during pickup:", notifErr.message);
+          console.error(
+            "Failed to create low-stock notification during pickup:",
+            notifErr.message,
+          );
         }
       }
 
       request.status = "picked-up";
       await request.save();
 
+      // Create pickup-confirmed notification for the client (translated if non-English)
       try {
+        const englishMessage =
+          "Your food request pickup has been confirmed. Thank you!";
+        const client = await User.findById(request.clientId)
+          .select("preferredLanguage")
+          .lean();
+        const lang = client?.preferredLanguage || "en";
+        const message = await translateText(englishMessage, lang);
+
         await Notification.create({
           userId: request.clientId,
           type: "pickup-confirmed",
-          message: "Your food request pickup has been confirmed. Thank you!",
+          message,
+          originalMessage: lang !== "en" ? englishMessage : undefined,
+          language: lang,
           relatedId: request._id,
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create pickup-confirmed notification:", notifErr.message);
+        console.error(
+          "Failed to create pickup-confirmed notification:",
+          notifErr.message,
+        );
       }
 
       const updated = await FoodRequest.findById(request._id).populate(
         "itemsAllocated.itemId",
-        "name category quantity unit"
+        "name category quantity unit",
       );
 
-      return res.status(200).json({ message: "Pickup confirmed", request: updated });
+      return res
+        .status(200)
+        .json({ message: "Pickup confirmed", request: updated });
     } catch (err) {
       console.error("Pickup error:", err.message);
       return res.status(500).json({ error: "Server error" });
     }
   },
 );
+
+// PATCH /api/requests/:id/cancel — client cancels their own pending request
+app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    id: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .required(),
+  });
+
+  const { error } = schema.validate(req.params);
+  if (error) {
+    return res.status(400).json({ error: "Invalid request ID" });
+  }
+
+  try {
+    const request = await FoodRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    if (request.clientId.toString() !== req.user.userId) {
+      return res
+        .status(403)
+        .json({ error: "You can only cancel your own requests" });
+    }
+
+    if (request.status !== "pending") {
+      return res.status(400).json({
+        error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.`,
+      });
+    }
+
+    request.status = "cancelled";
+    await request.save();
+
+    return res.status(200).json({ message: "Request cancelled", request });
+  } catch (err) {
+    console.error("Cancel error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
 /* === Inventory API === */
 
@@ -913,6 +1059,7 @@ app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => 
   }
 });
 
+// PATCH /api/inventory/:id — admin updates an inventory item
 // PATCH /api/inventory/:id — admin updates an inventory item
 app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
@@ -1119,16 +1266,23 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     } catch (parseErr) {
       console.error("AI returned invalid JSON:", rawText);
       return res.status(502).json({
-        error: "AI returned unexpected response, please try rephrasing your description.",
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
       });
     }
 
     const { error: validationError, value: validatedOutput } =
       aiOutputSchema.validate(parsed, { stripUnknown: true });
     if (validationError) {
-      console.error("AI output failed validation:", validationError.details, "Raw:", parsed);
+      console.error(
+        "AI output failed validation:",
+        validationError.details,
+        "Raw:",
+        parsed,
+      );
       return res.status(502).json({
-        error: "AI returned unexpected response, please try rephrasing your description.",
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
       });
     }
 
@@ -1139,18 +1293,21 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
   } catch (err) {
     console.error("AI parse-request error:", err.message);
     return res.status(500).json({
-      error: "Something went wrong with the AI assistant. Please try again later.",
+      error:
+        "Something went wrong with the AI assistant. Please try again later.",
     });
   }
 });
 
 /* === Notifications API === */
 
-// GET /api/notifications
-app.get('/api/notifications', sessionValidation, async (req, res) => {
+// GET /api/notifications — current user's notifications
+app.get("/api/notifications", sessionValidation, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
-    if (req.query.unreadOnly === 'true') filter.read = false;
+    if (req.query.unreadOnly === "true") {
+      filter.read = false;
+    }
 
     let limit = parseInt(req.query.limit, 10);
     if (isNaN(limit) || limit < 1) limit = 50;
@@ -1161,69 +1318,171 @@ app.get('/api/notifications', sessionValidation, async (req, res) => {
       .limit(limit)
       .lean();
 
-    const unreadCount = await Notification.countDocuments({ userId: req.user.userId, read: false });
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user.userId,
+      read: false,
+    });
+
     return res.status(200).json({ notifications, unreadCount });
   } catch (err) {
-    console.error('Fetch notifications error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Fetch notifications error:", err.message);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
-// GET /api/notifications/unread-count
-app.get('/api/notifications/unread-count', sessionValidation, async (req, res) => {
-  try {
-    const count = await Notification.countDocuments({ userId: req.user.userId, read: false });
-    return res.status(200).json({ count });
-  } catch (err) {
-    console.error('Unread count error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+// GET /api/notifications/unread-count — lightweight badge count
+app.get(
+  "/api/notifications/unread-count",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const count = await Notification.countDocuments({
+        userId: req.user.userId,
+        read: false,
+      });
+      return res.status(200).json({ count });
+    } catch (err) {
+      console.error("Unread count error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
-// PATCH /api/notifications/read-all
-app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => {
-  try {
-    const result = await Notification.updateMany(
-      { userId: req.user.userId, read: false },
-      { $set: { read: true } }
-    );
-    return res.status(200).json({ updated: result.modifiedCount });
-  } catch (err) {
-    console.error('Read-all error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+// PATCH /api/notifications/read-all — mark all unread as read
+app.patch(
+  "/api/notifications/read-all",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const result = await Notification.updateMany(
+        { userId: req.user.userId, read: false },
+        { $set: { read: true } },
+      );
+      return res.status(200).json({ updated: result.modifiedCount });
+    } catch (err) {
+      console.error("Read-all error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
-// PATCH /api/notifications/:id/read
-app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => {
+// PATCH /api/notifications/:id/read — mark single notification as read
+app.patch(
+  "/api/notifications/:id/read",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const notification = await Notification.findById(req.params.id);
+      if (!notification)
+        return res.status(404).json({ error: "Notification not found" });
+      if (notification.userId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      notification.read = true;
+      await notification.save();
+      return res.status(200).json({ notification });
+    } catch (err) {
+      console.error("Mark read error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
+
+// DELETE /api/notifications/:id — dismiss a notification
+app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+    if (!notification)
+      return res.status(404).json({ error: "Notification not found" });
     if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: "Forbidden" });
     }
-    notification.read = true;
-    await notification.save();
-    return res.status(200).json({ notification });
-  } catch (err) {
-    console.error('Mark read error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
 
-// DELETE /api/notifications/:id
-app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
-  try {
-    const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
-    if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     await notification.deleteOne();
     return res.sendStatus(204);
   } catch (err) {
-    console.error('Delete notification error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Delete notification error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// SAVE SETTINGS TO USER PROFILE
+app.post("/api/profile", protect, async (req, res) => {
+  try {
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        householdSize,
+        allergies,
+        dietaryRestrictions,
+      },
+      {
+        new: true,
+      },
+    );
+
+    res.json({
+      success: true,
+      user: updatedUser,
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+});
+// PROFILE PAGE
+app.get("/profile", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.render("profile", {
+      user: {},
+      error: "Failed to load profile",
+    });
+  }
+});
+
+// SAVE PROFILE
+app.post("/profile", protect, async (req, res) => {
+  try {
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
+
+    await User.findByIdAndUpdate(req.user._id, {
+      householdSize,
+
+      allergies: allergies || [],
+
+      dietaryRestrictions: dietaryRestrictions || [],
+    });
+
+    const updatedUser = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user: updatedUser,
+
+      success: "Profile updated successfully",
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.render("profile", {
+      user: req.user,
+
+      error: "Failed to update profile",
+    });
   }
 });
 

@@ -1,0 +1,91 @@
+:root {
+  --primary-font: "Lexend Deca", sans-serif;
+  --heading-font: "Bricolage Grotesque", sans-serif;
+  --bg-light: #f8f9fa;
+  --border-color: #e9ecef;
+  --primary-color: #198754;
+}
+
+body {
+  font-family: var(--primary-font);
+  background-color: #f4f6f8;
+  color: #333333;
+}
+
+h1,
+h2,
+h3,
+h4,
+.display-6 {
+  font-family: var(--heading-font);
+  font-weight: 700;
+}
+
+.card {
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+}
+
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: #6c757d;
+  background-color: #fdfdfd;
+  border-bottom: 2px solid var(--border-color);
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.table tbody tr {
+  transition: background-color 0.2s ease-in-out;
+}
+
+.table tbody tr:hover {
+  background-color: #fdfefe;
+}
+
+.table td,
+.table th {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.location-tag {
+  background-color: #eef2f7;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.table-danger-row {
+  background-color: #fffbfa;
+}
+.table-danger-row:hover {
+  background-color: #ffebe9 !important;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.15);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+.btn-primary:hover {
+  background-color: #146c43;
+  border-color: #13653f;
+}

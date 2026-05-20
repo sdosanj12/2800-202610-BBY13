@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile | Food Bank Tracker</title>
+
+    <link rel="stylesheet" href="/style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Lexend+Deca:wght@100..900&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+
+        <a href="/" class="nav-brand">
+            Food Bank Tracker
+        </a>
+
+        <ul class="nav-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/inventory">Inventory</a></li>
+            <li><a href="/requests">Requests</a></li>
+            <li><a href="/profile" class="nav-active">Profile</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- MAIN -->
+    <main class="container">
+
+        <section class="card">
+
+            <div class="profile-header">
+
+                <div>
+                    <h1>Your Profile</h1>
+
+                    <p>
+                        Update your household details to help us better
+                        manage inventory for the Vancouver community.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- SUCCESS MESSAGE -->
+            <% if (typeof success !=='undefined' && success) { %>
+
+                <div class="success-message">
+                    <%= success %>
+                </div>
+
+                <% } %>
+
+                    <!-- ERROR MESSAGE -->
+                    <% if (typeof error !=='undefined' && error) { %>
+
+                        <div class="error-message">
+                            <%= error %>
+                        </div>
+
+                        <% } %>
+
+                            <!-- PROFILE FORM -->
+                            <form id="user-profile-form" action="/profile" method="POST">
+
+                                <!-- HOUSEHOLD -->
+                                <div class="form-section">
+
+                                    <h3>Household Information</h3>
+
+                                    <label for="householdSize">
+                                        Total Number of People
+                                    </label>
+
+                                    <select id="householdSize" name="householdSize" required>
+
+                                        <option value="1" <%=user.householdSize==="1" ? "selected" : "" %>
+                                            >
+                                            1 (Individual)
+                                        </option>
+
+                                        <option value="2" <%=user.householdSize==="2" ? "selected" : "" %>
+                                            >
+                                            2 (Couple/Small Family)
+                                        </option>
+
+                                        <option value="3" <%=user.householdSize==="3" ? "selected" : "" %>
+                                            >
+                                            3
+                                        </option>
+
+                                        <option value="4" <%=user.householdSize==="4" ? "selected" : "" %>
+                                            >
+                                            4
+                                        </option>
+
+                                        <option value="5" <%=user.householdSize==="5" ? "selected" : "" %>
+                                            >
+                                            5
+                                        </option>
+
+                                        <option value="6+" <%=user.householdSize==="6+" ? "selected" : "" %>
+                                            >
+                                            6 or more
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+                                <!-- ALLERGIES -->
+                                <div class="form-section">
+
+                                    <h3>Allergies</h3>
+
+                                    <p>
+                                        Select any known allergies for members
+                                        of your household:
+                                    </p>
+
+                                    <div class="grid-options">
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="peanuts"
+                                                <%=user.allergies?.includes("peanuts") ? "checked" : "" %>
+                                            >
+                                            Peanuts
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="tree-nuts"
+                                                <%=user.allergies?.includes("tree-nuts") ? "checked" : "" %>
+                                            >
+                                            Tree Nuts
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="shellfish"
+                                                <%=user.allergies?.includes("shellfish") ? "checked" : "" %>
+                                            >
+                                            Shellfish
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="dairy"
+                                                <%=user.allergies?.includes("dairy") ? "checked" : "" %>
+                                            >
+                                            Dairy
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="eggs"
+                                                <%=user.allergies?.includes("eggs") ? "checked" : "" %>
+                                            >
+                                            Eggs
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="allergies" value="soy"
+                                                <%=user.allergies?.includes("soy") ? "checked" : "" %>
+                                            >
+                                            Soy
+                                        </label>
+
+                                    </div>
+
+                                </div>
+
+                                <!-- DIETARY RESTRICTIONS -->
+                                <div class="form-section">
+
+                                    <h3>Dietary Restrictions</h3>
+
+                                    <div class="grid-options">
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="dietaryRestrictions" value="vegetarian"
+                                                <%=user.dietaryRestrictions?.includes("vegetarian") ? "checked" : "" %>
+                                            >
+                                            Vegetarian
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="dietaryRestrictions" value="vegan"
+                                                <%=user.dietaryRestrictions?.includes("vegan") ? "checked" : "" %>
+                                            >
+                                            Vegan
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="dietaryRestrictions" value="halal"
+                                                <%=user.dietaryRestrictions?.includes("halal") ? "checked" : "" %>
+                                            >
+                                            Halal
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="dietaryRestrictions" value="kosher"
+                                                <%=user.dietaryRestrictions?.includes("kosher") ? "checked" : "" %>
+                                            >
+                                            Kosher
+                                        </label>
+
+                                        <label class="checkbox-card">
+                                            <input type="checkbox" name="dietaryRestrictions" value="gluten-free"
+                                                <%=user.dietaryRestrictions?.includes("gluten-free") ? "checked" : "" %>
+                                            >
+                                            Gluten-Free
+                                        </label>
+
+                                    </div>
+
+                                </div>
+
+                                <!-- BUTTONS -->
+                                <div class="form-actions" style="margin-top: 2rem;">
+
+                                    <button type="submit" class="btn-primary">
+                                        Save Changes
+                                    </button>
+
+                                    <button type="button" class="btn-secondary" onclick="window.location.reload()">
+                                        Cancel
+                                    </button>
+
+                                </div>
+
+                            </form>
+
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+
+        <p>
+            © 2026 Food Bank Tracker
+        </p>
+
+    </footer>
+
+</body>
+
+</html>
