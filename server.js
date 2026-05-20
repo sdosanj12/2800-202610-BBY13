@@ -53,18 +53,6 @@ app.use(express.static(__dirname + "/public"));
 
 /* === Rate limiting === */
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per IP
-  message: { error: "Too many login attempts. Please try again in 15 minutes." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/login", authLimiter);
-app.use("/api/auth/login", authLimiter);
-app.use("/submitUser", authLimiter);
-
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
