@@ -13,6 +13,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const { connectDB } = require("./databaseConnection");
 const User = require("./models/User");
+const Employee = require("./models/Employee"); // [ADDED FROM ADMIN] Employee model for PIN-based admin auth
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
@@ -27,6 +28,8 @@ const PORT = process.env.PORT || 3000;
 const saltRounds = 12;
 const jwtExpireTime = "24h";
 const jwt_secret = process.env.JWT_SECRET;
+// [ADDED FROM ADMIN] Separate secret for admin (Employee) JWT tokens
+const admin_jwt_secret = process.env.ADMIN_JWT_SECRET || jwt_secret + '_admin';
 
 /*
  * NOTE ON STRUCTURE:
@@ -123,19 +126,6 @@ function sessionValidation(req, res, next) {
   }
 }
 
-function isAdmin(req) {
-  return req.user && req.user.roles && req.user.roles.includes("admin");
-}
-
-function adminAuthorization(req, res, next) {
-  if (!isAdmin(req)) {
-    res.status(403);
-    res.render("errorMessage", { error: "Not Authorized" });
-    return;
-  }
-  next();
-}
-
 function isVolunteerOrAdmin(req) {
   return (
     req.user &&
@@ -146,6 +136,57 @@ function isVolunteerOrAdmin(req) {
 
 function volunteerOrAdminAuthorization(req, res, next) {
   if (!isVolunteerOrAdmin(req)) {
+    res.status(403);
+    res.render("errorMessage", { error: "Not Authorized" });
+    return;
+  }
+  next();
+}
+
+// [ADDED FROM ADMIN] Admin (Employee) token generation using a separate JWT secret
+function generateAdminToken(employee) {
+  return jwt.sign(
+    {
+      employeeId: employee.employeeId,
+      employeeDbId: employee._id,
+      name: employee.name,
+      role: employee.role,
+      type: "employee",
+    },
+    admin_jwt_secret,
+    { expiresIn: jwtExpireTime },
+  );
+}
+
+// [ADDED FROM ADMIN] Verifies the admin_token cookie (separate from user token)
+function verifyAdminToken(req) {
+  const token = req.cookies && req.cookies.admin_token;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, admin_jwt_secret);
+  } catch (err) {
+    return null;
+  }
+}
+
+// [ADDED FROM ADMIN] Middleware: populates req.employee from the admin_token cookie
+function adminSessionValidation(req, res, next) {
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    req.employee = decoded;
+    next();
+  } else {
+    res.redirect("/admin/login");
+  }
+}
+
+// [ADDED FROM ADMIN] isAdmin checks that the req.employee token was set by adminSessionValidation
+function isAdmin(req) {
+  return req.employee && req.employee.type === "employee";
+}
+
+function adminAuthorization(req, res, next) {
+  if (!isAdmin(req)) {
     res.status(403);
     res.render("errorMessage", { error: "Not Authorized" });
     return;
@@ -282,9 +323,7 @@ app.post("/login", async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    if (user.roles.includes("admin")) {
-      res.redirect("/admin/dashboard");
-    } else if (user.roles.includes("volunteer")) {
+    if (user.roles.includes("volunteer")) {
       res.redirect("/volunteer/dashboard");
     } else {
       res.redirect("/client/dashboard");
@@ -339,9 +378,7 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       return res.redirect("/login");
     }
 
-    const dashboardRole = user.roles.includes("admin")
-      ? "admin"
-      : user.roles.includes("volunteer")
+    const dashboardRole = user.roles.includes("volunteer")
         ? "volunteer"
         : "client";
 
@@ -386,10 +423,9 @@ app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
 
-app.use("/admin", sessionValidation, adminAuthorization);
-app.get("/admin/dashboard", (req, res) => {
-  res.render("admin-dashboard", { username: req.user.username });
-});
+// [REMOVED FROM ADMIN] Old admin route used JWT user session + adminAuthorization.
+// Replaced below by Employee ID + PIN auth (adminSessionValidation + generateAdminToken).
+// The duplicate app.use("/admin", ...) and old dashboard route have been removed.
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
@@ -401,6 +437,96 @@ app.get("/volunteer/dashboard", (req, res) => {
     recentActivity: [],
   });
 });
+
+/* === CHANGED: Admin (Employee ID + PIN) routes ===
+ * Previously: app.use("/admin", sessionValidation, adminAuthorization)
+ *             app.get("/admin/dashboard") rendered with { username: req.user.username }
+ *
+ * Now: /admin/login accepts an Employee ID (EMP-XXXXXXXX) and PIN instead of
+ * a username/password. A separate admin_token cookie is issued. All /admin
+ * routes are protected by adminSessionValidation, which populates req.employee
+ * (not req.user). The dashboard re-fetches the full Employee record from DB
+ * and renders with { employee } instead of { username }.
+ */
+
+app.get("/admin/login", (req, res) => {
+  // If already logged in as admin, go straight to dashboard
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    return res.redirect("/admin/dashboard");
+  }
+  res.render("admin-login", { error: null, prefill: "" });
+});
+
+app.post("/admin/login", async (req, res) => {
+  const { employeeId, pin } = req.body;
+
+  const idSchema = Joi.string().pattern(/^EMP-[A-Z2-9]{8}$/).required();
+  const pinSchema = Joi.string().pattern(/^\d{4,8}$/).required();
+
+  const idErr = idSchema.validate(employeeId).error;
+  const pinErr = pinSchema.validate(pin).error;
+
+  if (idErr || pinErr) {
+    return res.render("admin-login", {
+      error: "Invalid Employee ID or PIN format.",
+      prefill: employeeId || "",
+    });
+  }
+
+  try {
+    const employee = await Employee.findOne({ employeeId, isActive: true }).select("+pin");
+
+    if (!employee) {
+      return res.render("admin-login", {
+        error: "Employee ID not found or account is inactive.",
+        prefill: "",
+      });
+    }
+
+    const pinMatch = await employee.comparePin(pin);
+    if (!pinMatch) {
+      return res.render("admin-login", {
+        error: "Incorrect PIN. Please try again.",
+        prefill: employeeId,
+      });
+    }
+
+    await Employee.updateOne({ _id: employee._id }, { lastLogin: new Date() });
+
+    const token = generateAdminToken(employee);
+    res.cookie("admin_token", token, { 
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect("/admin/dashboard");
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    return res.status(500).render("errorMessage", { error: "Server error during admin login" });
+  }
+});
+
+app.get("/admin/logout", (req, res) => {
+  res.clearCookie("admin_token"); 
+  res.redirect("/admin/login");
+});
+
+
+app.use("/admin", adminSessionValidation);
+
+app.get("/admin/dashboard", async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
+    if (!employee) return res.redirect("/admin/login");
+    res.render("admin-dashboard", { employee }); 
+  } catch (err) {
+    console.error("Dashboard error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load dashboard" });
+  }
+});
+
 
 /* === Food Request API === */
 
@@ -827,11 +953,10 @@ app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
 
 /* === Inventory API === */
 
-// POST /api/inventory — adminadds an item
+
 app.post(
   "/api/inventory",
-  sessionValidation,
-  adminAuthorization,
+  adminSessionValidation,
   async (req, res) => {
     const schema = Joi.object({
       name: Joi.string().min(3).max(100).required(),
@@ -855,7 +980,7 @@ app.post(
     try {
       const item = await InventoryItem.create({
         ...value,
-        addedBy: req.user.userId,
+        addedBy: req.employee.employeeDbId, 
       });
       return res.status(201).json({ message: "Item added", item });
     } catch (err) {
@@ -865,7 +990,7 @@ app.post(
   },
 );
 
-// GET /api/inventory — any authed user, supports ?status, ?category, ?expiringSoon=true
+// GET /api/inventory — any authed user, supports ?status, ?category, ?expiringSoon=true (unchanged)
 app.get("/api/inventory", sessionValidation, async (req, res) => {
   try {
     const filter = {};
@@ -917,8 +1042,7 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
 // GET /api/inventory/low-stock — admin dashboard view
 app.get(
   "/api/inventory/low-stock",
-  sessionValidation,
-  adminAuthorization,
+  adminSessionValidation,
   async (req, res) => {
     try {
       const items = await InventoryItem.find({
@@ -934,11 +1058,10 @@ app.get(
   },
 );
 
-// PATCH /api/inventory/:id — adminupdates an item (status auto-recomputes via pre-hook)
+
 app.patch(
   "/api/inventory/:id",
-  sessionValidation,
-  adminAuthorization,
+  adminSessionValidation,
   async (req, res) => {
     const schema = Joi.object({
       name: Joi.string().min(3).max(100).optional(),
@@ -974,9 +1097,7 @@ app.patch(
         );
         const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
         if (isNowLowOrOut && !wasLowOrOut) {
-          const adminUsers = await User.find({ roles: "admin" })
-            .select("_id")
-            .lean();
+          const adminUsers = await Employee.find({ isActive: true }).select("_id").lean();
           const notifications = adminUsers.map((u) => ({
             userId: u._id,
             type: "low-stock",
@@ -1003,11 +1124,9 @@ app.patch(
   },
 );
 
-// DELETE /api/inventory/:id — adminremoves an item
 app.delete(
   "/api/inventory/:id",
-  sessionValidation,
-  adminAuthorization,
+  adminSessionValidation,
   async (req, res) => {
     try {
       const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
@@ -1414,3 +1533,12 @@ connectDB()
     console.error("Failed to start server:", err.message);
     process.exit(1);
   });
+
+// Catch silent crashes
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err.message);
+  console.error(err.stack);
+});
