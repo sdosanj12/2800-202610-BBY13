@@ -1,0 +1,40 @@
+<nav class="navbar" style="width: 100%; display: block;">
+    <a href="/" class="nav-brand">
+        Food Bank Tracker
+    </a>
+
+    <ul class="nav-links">
+        <li>
+            <a href="/inventory"
+                class="<%= typeof currentPath !=='undefined' && currentPath==='/inventory' ? 'nav-active' : '' %>">
+                Inventory
+            </a>
+        </li>
+        <li>
+
+            <a href="/requests"
+                class="<%= typeof currentPath !=='undefined' && currentPath==='/requests' ? 'nav-active' : '' %>">
+                Requests
+            </a>
+        </li>
+        <li>
+            <a href="/volunteer/dashboard"
+                class="<%= typeof currentPath !=='undefined' && currentPath==='/volunteer/dashboard' ? 'nav-active' : '' %>">
+                Volunteers
+            </a>
+        </li>
+        <li>
+            <a href="/admin/dashboard"
+                class="<%= typeof currentPath !=='undefined' && currentPath==='/admin/dashboard' ? 'nav-active' : '' %>">
+                Reports
+            </a>
+        </li>
+        <li>
+
+            <a href="/login"
+                class="<%= typeof currentPath !=='undefined' && currentPath==='/login' ? 'nav-active' : '' %>">
+                Login
+            </a>
+        </li>
+    </ul>
+</nav>
