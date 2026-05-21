@@ -408,6 +408,38 @@ app.get("/volunteer/dashboard", (req, res) => {
   });
 });
 
+/* === Volunteer Schedule route === */
+
+app.get("/schedule", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
+  // Placeholder schedule data — replace with DB model when schedule feature is built
+  const today = new Date();
+  const shifts = [
+    {
+      id: 1,
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "09:00",
+      endTime: "13:00",
+      role: "Inventory Sorting",
+      location: "Warehouse A",
+      status: "upcoming",
+    },
+    {
+      id: 2,
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3),
+      startTime: "14:00",
+      endTime: "17:00",
+      role: "Client Intake",
+      location: "Front Desk",
+      status: "upcoming",
+    },
+  ];
+  res.render("volunteer-schedule", {
+    username: req.user.username,
+    shifts,
+    isAdmin: req.user.roles && req.user.roles.includes("admin"),
+  });
+});
+
 /* === Admin routes ===
  * Public: /admin/login, /admin/logout (no adminSessionValidation)
  * Protected: all others use adminSessionValidation inline
@@ -1914,9 +1946,54 @@ app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (r
 })
 
 
+/* === Admin Volunteer Schedule page === */
+
+// GET /admin/schedule — admin views and manages volunteer schedules
+app.get("/admin/schedule", adminSessionValidation, (req, res) => {
+  const today = new Date();
+  // Placeholder shifts — wire to a Schedule model when the DB layer is ready
+  const shifts = [
+    {
+      id: 1,
+      volunteer: "Alice Johnson",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "09:00",
+      endTime: "13:00",
+      role: "Inventory Sorting",
+      location: "Warehouse A",
+      status: "confirmed",
+    },
+    {
+      id: 2,
+      volunteer: "Bob Chen",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "13:00",
+      endTime: "17:00",
+      role: "Client Intake",
+      location: "Front Desk",
+      status: "confirmed",
+    },
+    {
+      id: 3,
+      volunteer: "Maria Santos",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3),
+      startTime: "10:00",
+      endTime: "14:00",
+      role: "Food Packing",
+      location: "Warehouse B",
+      status: "pending",
+    },
+  ];
+  res.render("admin-schedule", {
+    employee: req.employee,
+    shifts,
+  });
+});
+
 /* === 404 catch-all === */
 
 app.use((req, res) => {
+  console.log("404 HIT:", req.method, req.path);
   res.status(404);
   res.render("404");
 });

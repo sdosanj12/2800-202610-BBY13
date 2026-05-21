@@ -165,12 +165,122 @@
       </div>
     </section>
 
+    <!-- Staff / Admin Portal Section -->
+    <section class="px-4 py-5 text-center border-top" style="background: #f8fafc;">
+      <div class="container py-3">
+        <p class="text-muted small mb-2" style="letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem;">Staff Portal</p>
+        <h3 class="fw-semibold text-body-emphasis mb-2" style="font-size: 1.25rem;">Are you a Food Bank employee?</h3>
+        <p class="text-muted mb-4" style="font-size: 0.95rem;">Access the admin dashboard to manage inventory, volunteers, and operations.</p>
+        <a href="/admin/login" class="btn btn-outline-secondary px-4 fw-medium">
+          <span class="material-symbols-outlined align-middle me-1" style="font-size: 1.1rem; vertical-align: -3px;">admin_panel_settings</span>
+          Admin Login
+        </a>
+      </div>
+    </section>
+
   </main>
 
   <%- include('partials/footer') %>
 
     <script src="/navbar.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- 🥚 Easter Egg: The "Secret Pantry" -->
+  <!-- Triggered by typing "hunger" anywhere on the landing page -->
+  <div id="easter-egg-overlay" style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    animation: fadeInBg 0.4s ease;
+  ">
+    <div id="easter-egg-box" style="
+      background: #fff;
+      border-radius: 1.25rem;
+      padding: 2.5rem 2.25rem 2rem;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 8px 48px rgba(26,58,92,0.18);
+      animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative;
+    ">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🥫🌽🥚</div>
+      <h2 style="font-size: 1.4rem; font-weight: 700; color: #1a3a5c; margin-bottom: 0.5rem;">You Found the Secret Pantry!</h2>
+      <p style="color: #555; font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.25rem;">
+        Every item in our warehouse represents a family that won't go hungry tonight.<br><br>
+        <strong style="color: #1a3a5c;">Did you know?</strong> Food banks in Canada serve over
+        <span style="color: #2e7d32; font-weight: 600;">1 million people</span> every month.
+        Volunteers like <em>you</em> make that possible. 🙏
+      </p>
+      <div style="background: #f0f7f0; border-radius: 0.75rem; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.88rem; color: #2e7d32; font-style: italic;">
+        "No one who volunteers at a food bank goes home the same as they came." 
+      </div>
+      <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <a href="/register" style="
+          background: #1a3a5c; color: #fff; text-decoration: none;
+          padding: 0.6rem 1.4rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.9rem;
+        ">Join as Volunteer</a>
+        <button onclick="closeEasterEgg()" style="
+          background: none; border: 1.5px solid #ccc; color: #555;
+          padding: 0.6rem 1.4rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.9rem;
+          cursor: pointer;
+        ">Close</button>
+      </div>
+      <p style="font-size: 0.72rem; color: #aaa; margin-top: 1rem; margin-bottom: 0;">
+        🥚 Secret unlocked by typing <code>hunger</code> — share this with a friend who cares!
+      </p>
+    </div>
+  </div>
+
+  <style>
+    @keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes popIn {
+      from { transform: scale(0.7); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+  </style>
+
+  <script>
+    // 🥚 Easter Egg: type the word "hunger" anywhere on the page to unlock the Secret Pantry
+    (function () {
+      const trigger = 'hunger';
+      let buffer = '';
+      let unlocked = false;
+
+      document.addEventListener('keydown', function (e) {
+        if (unlocked) return;
+        // Only track printable single characters
+        if (e.key.length === 1) {
+          buffer = (buffer + e.key.toLowerCase()).slice(-trigger.length);
+          if (buffer === trigger) {
+            unlocked = true;
+            openEasterEgg();
+          }
+        }
+      });
+
+      window.openEasterEgg = function () {
+        const overlay = document.getElementById('easter-egg-overlay');
+        overlay.style.display = 'flex';
+        // Allow re-trigger after closing
+        unlocked = false;
+        buffer = '';
+      };
+
+      window.closeEasterEgg = function () {
+        document.getElementById('easter-egg-overlay').style.display = 'none';
+      };
+
+      // Close on overlay click (outside the box)
+      document.getElementById('easter-egg-overlay').addEventListener('click', function (e) {
+        if (e.target === this) closeEasterEgg();
+      });
+    })();
+  </script>
 
 </body>
 
