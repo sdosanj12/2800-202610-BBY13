@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/login.css" />
+  <style>
+    /* Admin-specific additions on top of login.css */
+    .admin-badge {
+      display: inline-block;
+      background: var(--color-navy);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+
+    .field-hint {
+      font-size: 0.75rem;
+      color: var(--color-muted);
+      margin-top: 0.25rem;
+    }
+
+    .back-link {
+      text-align: center;
+      margin-top: 1.25rem;
+      font-size: 0.85rem;
+      color: var(--color-muted);
+    }
+
+    .back-link a {
+      color: var(--color-navy);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .back-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="navbar">
+    <a href="/" class="nav-brand">Food Bank Tracker</a>
+    <ul class="nav-links">
+      <li><a href="/login">Login</a></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="page-content">
+    <div class="card">
+      <div class="admin-badge">Admin Portal</div>
+      <h1 class="card-title">Admin Login</h1>
+      <p style="font-size: 0.9rem; color: var(--color-muted); margin-bottom: 1.25rem;">
+        Enter your Employee ID and PIN to continue.
+      </p>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="server-error"><%= error %></div>
+      <% } %>
+
+      <form action="/admin/login" method="POST">
+        <div class="form-group">
+          <label class="form-label" for="employeeId">Employee ID</label>
+          <input
+            class="form-input"
+            type="text"
+            id="employeeId"
+            name="employeeId"
+            placeholder="EMP-XXXXXXXX"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            maxlength="12"
+            value="<%= typeof prefill !== 'undefined' ? prefill : '' %>"
+          />
+          <div class="field-hint">Format: EMP-XXXXXXXX</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="pin">PIN</label>
+          <input
+            class="form-input"
+            type="password"
+            id="pin"
+            name="pin"
+            placeholder="Enter your PIN"
+            autocomplete="current-password"
+            required
+            minlength="4"
+            maxlength="8"
+            inputmode="numeric"
+            pattern="\d{4,8}"
+          />
+          <div class="field-hint">4–8 digit numeric PIN</div>
+        </div>
+
+        <button type="submit" class="btn-submit">Log In</button>
+      </form>
+
+      <div class="back-link">
+        <a href="/login">← Regular user login</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <span>© 2026 Food Bank Tracker</span>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+
+</body>
+</html>

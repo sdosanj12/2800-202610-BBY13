@@ -43,14 +43,14 @@ const userSchema = new mongoose.Schema(
       default: []
     },
 
-    dietaryRestrictions: {
+    dietaryRestrictions: { 
       type: [String],
       default: []
     },
       preferredLanguage: {
       type: String,
       default: 'en'
-    }
+    } 
   },
   { timestamps: true }
 );
