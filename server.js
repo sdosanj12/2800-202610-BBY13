@@ -13,20 +13,23 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const { connectDB } = require("./databaseConnection");
 const User = require("./models/User");
+const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
 
 const protect = require("./middleware/auth");
+const AuditLog = require("./models/AuditLog");
 
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const saltRounds = 12;
 const jwtExpireTime = "24h";
 const jwt_secret = process.env.JWT_SECRET;
+const admin_jwt_secret = process.env.ADMIN_JWT_SECRET || jwt_secret + '_admin';
 
 /*
  * NOTE ON STRUCTURE:
@@ -77,8 +80,8 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Rate limit by authenticated user if logged in, fall back to IP
-    return req.user?.userId || req.ip;
+    if (req.user?.userId) return req.user.userId;
+    return req.socket.remoteAddress ?? 'unknown';
   },
 });
 
@@ -94,6 +97,20 @@ function generateToken(user) {
       roles: user.roles,
     },
     jwt_secret,
+    { expiresIn: jwtExpireTime },
+  );
+}
+
+function generateAdminToken(employee) {
+  return jwt.sign(
+    {
+      employeeId: employee.employeeId,
+      employeeDbId: employee._id,
+      name: employee.name,
+      role: employee.role,
+      type: "employee",
+    },
+    admin_jwt_secret,
     { expiresIn: jwtExpireTime },
   );
 }
@@ -118,6 +135,16 @@ function verifyToken(req) {
   }
 }
 
+function verifyAdminToken(req) {
+  const token = req.cookies && req.cookies.admin_token;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, admin_jwt_secret);
+  } catch (err) {
+    return null;
+  }
+}
+
 function isValidSession(req) {
   const decoded = verifyToken(req);
   if (decoded) {
@@ -132,6 +159,16 @@ function sessionValidation(req, res, next) {
     next();
   } else {
     res.redirect("/login");
+  }
+}
+
+function adminSessionValidation(req, res, next) {
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    req.employee = decoded;
+    next();
+  } else {
+    res.redirect("/admin/login");
   }
 }
 
@@ -389,6 +426,71 @@ app.post('/submit-request', (req, res) => {
     res.render('confirmation', { referenceId: ref });
 });
 
+/* === Admin login routes — MUST be before app.use("/admin", ...) === */
+
+app.get("/admin/login", (req, res) => {
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    return res.redirect("/admin/dashboard");
+  }
+  res.render("admin-login", { error: null, prefill: "" });
+});
+
+app.post("/admin/login", async (req, res) => {
+  const { employeeId, pin } = req.body;
+
+  const idSchema = Joi.string().pattern(/^EMP-[A-Z2-9]{8}$/).required();
+  const pinSchema = Joi.string().pattern(/^\d{4,8}$/).required();
+
+  const idErr = idSchema.validate(employeeId).error;
+  const pinErr = pinSchema.validate(pin).error;
+
+  if (idErr || pinErr) {
+    return res.render("admin-login", {
+      error: "Invalid Employee ID or PIN format.",
+      prefill: employeeId || "",
+    });
+  }
+
+  try {
+    const employee = await Employee.findOne({ employeeId, isActive: true }).select("+pin");
+
+    if (!employee) {
+      return res.render("admin-login", {
+        error: "Employee ID not found or account is inactive.",
+        prefill: "",
+      });
+    }
+
+    const pinMatch = await employee.comparePin(pin);
+    if (!pinMatch) {
+      return res.render("admin-login", {
+        error: "Incorrect PIN. Please try again.",
+        prefill: employeeId,
+      });
+    }
+
+    await Employee.updateOne({ _id: employee._id }, { lastLogin: new Date() });
+
+    const token = generateAdminToken(employee);
+    res.cookie("admin_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect("/admin/dashboard");
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    return res.status(500).render("errorMessage", { error: "Server error during admin login" });
+  }
+});
+
+app.get("/admin/logout", (req, res) => {
+  res.clearCookie("admin_token");
+  res.redirect("/admin/login");
+});
+
 /* === Protected routes === */
 
 app.use("/client", sessionValidation);
@@ -399,9 +501,33 @@ app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
 
-app.use("/admin", sessionValidation, adminAuthorization);
+/* === Admin Employee Routes — must be before app.use("/admin", ...) === */
+
+app.get("/admin/employees/codes", adminSessionValidation, (req, res) => {
+  res.render("admin-generate-code", { error: null, prefill: "" });
+});
+
+app.get("/admin/inventory/alerts", adminSessionValidation, (req, res) => {
+  res.redirect("/admin/low-stock-alerts");
+});
+
+app.get("/admin/inventory/history", adminSessionValidation, (req, res) => {
+  res.redirect("/admin/audit-log");
+});
+
+app.get("/admin/employees", adminSessionValidation, async (req, res) => {
+  try {
+    const employees = await Employee.find().sort({ name: 1 }).lean();
+    res.render("admin-employees", { employee: req.employee, employees });
+  } catch (err) {
+    console.error("Employees page error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load employees" });
+  }
+});
+
+app.use("/admin", adminSessionValidation);
 app.get("/admin/dashboard", (req, res) => {
-  res.render("admin-dashboard", { username: req.user.username });
+  res.render("admin-dashboard", { username: req.employee.name, employee: req.employee });
 });
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
@@ -449,7 +575,7 @@ app.post(
   },
 );
 
-// GET /api/requests/pending — adminviews all pending requests (FIFO)
+// GET /api/requests/pending — admin views all pending requests (FIFO)
 app.get(
   "/api/requests/pending",
   sessionValidation,
@@ -490,7 +616,7 @@ app.get('/api/requests', async (req, res) => {
     }
 });
 
-// PATCH /api/requests/:id/approve — adminapproves a request
+// PATCH /api/requests/:id/approve — admin approves a request
 app.patch(
   "/api/requests/:id/approve",
   sessionValidation,
@@ -537,9 +663,7 @@ app.patch(
         console.error("Failed to create approval notification:", notifErr.message);
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request approved", request: updated });
+      return res.status(200).json({ message: "Request approved", request: updated });
     } catch (err) {
       console.error("Approve error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -547,7 +671,7 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/deny — admindenies a request
+// PATCH /api/requests/:id/deny — admin denies a request
 app.patch(
   "/api/requests/:id/deny",
   sessionValidation,
@@ -590,9 +714,7 @@ app.patch(
         console.error("Failed to create denial notification:", notifErr.message);
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request denied", request: updated });
+      return res.status(200).json({ message: "Request denied", request: updated });
     } catch (err) {
       console.error("Deny error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -626,9 +748,9 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
       // Validate each item exists and has enough quantity
@@ -638,9 +760,9 @@ app.patch(
           return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
         }
         if (inventoryItem.quantity < item.quantity) {
-          return res
-            .status(400)
-            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+          return res.status(400).json({
+            error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}`,
+          });
         }
       }
 
@@ -675,15 +797,13 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
       if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
-        return res
-          .status(400)
-          .json({ error: "Allocate items before confirming pickup." });
+        return res.status(400).json({ error: "Allocate items before confirming pickup." });
       }
 
       // Decrement inventory for each allocated item
@@ -789,17 +909,15 @@ app.patch(
       }
 
       if (request.status !== "pending") {
-        return res
-          .status(400)
-          .json({ error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.` });
+        return res.status(400).json({
+          error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.`,
+        });
       }
 
       request.status = "cancelled";
       await request.save();
 
-      return res
-        .status(200)
-        .json({ message: "Request cancelled", request });
+      return res.status(200).json({ message: "Request cancelled", request });
     } catch (err) {
       console.error("Cancel error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -809,7 +927,7 @@ app.patch(
 
 /* === Inventory API === */
 
-// POST /api/inventory — adminadds an item
+// POST /api/inventory — admin adds an item
 app.post(
   "/api/inventory",
   sessionValidation,
@@ -839,6 +957,10 @@ app.post(
         ...value,
         addedBy: req.user.userId,
       });
+      // Write audit log entry
+      try {
+        await AuditLog.log('added', item.name, `Added ${item.quantity} ${item.unit} to ${item.storageLocation || 'shelf'}`, req.user.username, req.user.roles?.[0] || 'admin', item._id);
+      } catch (e) { /* non-fatal */ }
       return res.status(201).json({ message: "Item added", item });
     } catch (err) {
       console.error("Inventory create error:", err.message);
@@ -916,7 +1038,7 @@ app.get(
   },
 );
 
-// PATCH /api/inventory/:id — adminupdates an item (status auto-recomputes via pre-hook)
+// PATCH /api/inventory/:id — admin updates an item (status auto-recomputes via pre-hook)
 app.patch(
   "/api/inventory/:id",
   sessionValidation,
@@ -978,7 +1100,7 @@ app.patch(
   },
 );
 
-// DELETE /api/inventory/:id — adminremoves an item
+// DELETE /api/inventory/:id — admin removes an item
 app.delete(
   "/api/inventory/:id",
   sessionValidation,
@@ -987,9 +1109,7 @@ app.delete(
     try {
       const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
       if (!deleted) return res.status(404).json({ error: "Item not found" });
-      return res
-        .status(200)
-        .json({ message: "Item deleted", deletedId: deleted._id });
+      return res.status(200).json({ message: "Item deleted", deletedId: deleted._id });
     } catch (err) {
       console.error("Inventory delete error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -1146,29 +1266,18 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error("AI returned invalid JSON:", rawText);
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error: "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     const { error: validationError, value: validatedOutput } =
       aiOutputSchema.validate(parsed, { stripUnknown: true });
     if (validationError) {
-      console.error(
-        "AI output failed validation:",
-        validationError.details,
-        "Raw:",
-        parsed,
-      );
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      console.error("AI output failed validation:", validationError.details, "Raw:", parsed);
+      return res.status(502).json({
+        error: "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     return res.status(200).json({
@@ -1180,12 +1289,9 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     });
   } catch (err) {
     console.error("AI parse-request error:", err.message);
-    return res
-      .status(500)
-      .json({
-        error:
-          "Something went wrong with the AI assistant. Please try again later.",
-      });
+    return res.status(500).json({
+      error: "Something went wrong with the AI assistant. Please try again later.",
+    });
   }
 });
 
@@ -1279,108 +1385,315 @@ app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
 
 // SAVE SETTINGS TO USER PROFILE
 app.post("/api/profile", protect, async (req, res) => {
-
   try {
-
-    const {
-      householdSize,
-      allergies,
-      dietaryRestrictions
-    } = req.body;
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      {
-        householdSize,
-        allergies,
-        dietaryRestrictions
-      },
-      {
-        new: true
-      }
+      { householdSize, allergies, dietaryRestrictions },
+      { new: true }
     );
 
-    res.json({
-      success: true,
-      user: updatedUser
-    });
-
+    res.json({ success: true, user: updatedUser });
   } catch (err) {
-
     console.error("Profile update error:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Server error"
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 // PROFILE PAGE
 app.get("/profile", protect, async (req, res) => {
-
   try {
-
     const user = await User.findById(req.user._id);
-
-    res.render("profile", {
-      user
-    });
-
+    res.render("profile", { user });
   } catch (err) {
-
     console.error(err);
-
-    res.render("profile", {
-      user: {},
-      error: "Failed to load profile"
-    });
+    res.render("profile", { user: {}, error: "Failed to load profile" });
   }
 });
-
 
 // SAVE PROFILE
 app.post("/profile", protect, async (req, res) => {
-
   try {
-
-    const {
-      householdSize,
-      allergies,
-      dietaryRestrictions
-    } = req.body;
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
 
     await User.findByIdAndUpdate(req.user._id, {
-
       householdSize,
-
       allergies: allergies || [],
-
-      dietaryRestrictions: dietaryRestrictions || []
-
+      dietaryRestrictions: dietaryRestrictions || [],
     });
 
-    const updatedUser =
-      await User.findById(req.user._id);
-
-    res.render("profile", {
-
-      user: updatedUser,
-
-      success: "Profile updated successfully"
-
-    });
-
+    const updatedUser = await User.findById(req.user._id);
+    res.render("profile", { user: updatedUser, success: "Profile updated successfully" });
   } catch (err) {
-
     console.error(err);
+    res.render("profile", { user: req.user, error: "Failed to update profile" });
+  }
+});
 
-    res.render("profile", {
+/* ===================================================================
+   ADMIN INVENTORY PAGE  —  GET /admin/inventory
+   =================================================================== */
 
-      user: req.user,
+app.get("/admin/inventory", adminSessionValidation, async (req, res) => {
+  try {
+    const { search, category, status, location } = req.query;
+    const filter = {};
+    if (category) filter.category = category;
+    if (status)   filter.status   = status;
+    if (location) filter.storageLocation = location;
+    if (search)   filter.name = { $regex: search, $options: 'i' };
 
-      error: "Failed to update profile"
+    const [items, total, inStock, lowStock, outOfStock] = await Promise.all([
+      InventoryItem.find(filter).populate('addedBy', 'username').sort({ name: 1 }).lean(),
+      InventoryItem.countDocuments(),
+      InventoryItem.countDocuments({ status: 'in-stock' }),
+      InventoryItem.countDocuments({ status: 'low-stock' }),
+      InventoryItem.countDocuments({ status: 'out-of-stock' }),
+    ]);
 
+    res.render('manage-inventory', {
+      username: req.employee.employeeId,
+      items,
+      stats: { total, inStock, lowStock, outOfStock },
+      filters: { search, category, status, location },
+      success: req.flash ? req.flash('success') : [],
+      error:   req.flash ? req.flash('error')   : [],
     });
+  } catch (err) {
+    console.error('Inventory page error:', err.message);
+    res.status(500).render('errorMessage', { error: 'Could not load inventory page' });
+  }
+});
+
+// POST /admin/inventory — add item (form submit from EJS modal)
+app.post("/admin/inventory", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).required(),
+    category: Joi.string().valid('canned','fresh','dry','frozen','beverages','baby','other').required(),
+    quantity: Joi.number().min(0).required(),
+    unit: Joi.string().valid('cans','bags','boxes','units','kg','lbs','liters').required(),
+    expiryDate: Joi.date().optional().allow(''),
+    storageLocation: Joi.string().valid('shelf','fridge','freezer','pantry').optional(),
+    notes: Joi.string().max(500).allow('').optional(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.redirect('/admin/inventory?err=' + encodeURIComponent(error.details[0].message));
+
+  try {
+    const item = await InventoryItem.create({ ...value, addedBy: req.user.userId });
+    await AuditLog.log('added', item.name, `Added ${value.quantity} ${value.unit} to ${value.storageLocation || 'shelf'}`, req.user.username, 'admin', item._id);
+    res.redirect('/admin/inventory');
+  } catch (err) {
+    console.error('Inventory add error:', err.message);
+    res.redirect('/admin/inventory?err=' + encodeURIComponent('Could not add item'));
+  }
+});
+
+// POST /admin/inventory/:id  (with _method=PATCH or _method=DELETE)
+app.post("/admin/inventory/:id", adminSessionValidation, async (req, res) => {
+  if (req.body._method === 'PATCH') {
+    const schema = Joi.object({
+      name: Joi.string().min(3).max(100).optional(),
+      category: Joi.string().valid('canned','fresh','dry','frozen','beverages','baby','other').optional(),
+      quantity: Joi.number().min(0).optional(),
+      unit: Joi.string().valid('cans','bags','boxes','units','kg','lbs','liters').optional(),
+      expiryDate: Joi.date().optional().allow(''),
+      storageLocation: Joi.string().valid('shelf','fridge','freezer','pantry').optional(),
+      notes: Joi.string().max(500).allow('').optional(),
+      _method: Joi.string().optional(),
+    });
+    const { error, value } = schema.validate(req.body);
+    if (error) return res.redirect('/admin/inventory');
+
+    try {
+      const oldItem = await InventoryItem.findById(req.params.id);
+      delete value._method;
+      Object.assign(oldItem, value);
+      await oldItem.save();
+      await AuditLog.log('updated', oldItem.name, `Qty updated to ${oldItem.quantity} ${oldItem.unit}`, req.user.username, 'admin', oldItem._id);
+      res.redirect('/admin/inventory');
+    } catch (err) {
+      console.error('Inventory edit error:', err.message);
+      res.redirect('/admin/inventory');
+    }
+
+  } else if (req.body._method === 'DELETE') {
+    try {
+      const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
+      if (deleted) await AuditLog.log('deleted', deleted.name, 'Item removed from inventory', req.user.username, 'admin', deleted._id);
+      res.redirect('/admin/inventory');
+    } catch (err) {
+      console.error('Inventory delete error:', err.message);
+      res.redirect('/admin/inventory');
+    }
+  } else {
+    res.redirect('/admin/inventory');
+  }
+});
+
+/* ===================================================================
+   LOW STOCK ALERTS PAGE  —  GET /admin/low-stock-alerts
+   =================================================================== */
+
+app.get("/admin/low-stock-alerts", adminSessionValidation, async (req, res) => {
+  try {
+    const filterParam = req.query.filter || 'all';
+
+    let query = { type: 'low-stock' };
+    if (filterParam === 'unread')    query.read = false;
+    if (filterParam === 'read')      query.read = true;
+    if (filterParam === 'critical')  { query.read = false; query.message = { $regex: 'out of stock', $options: 'i' }; }
+    if (filterParam === 'low-stock') { query.read = false; query.message = { $not: /out of stock/i }; }
+
+    const [alerts, total, unread] = await Promise.all([
+      Notification.find(query).populate('relatedId').sort({ createdAt: -1 }).limit(50).lean(),
+      Notification.countDocuments({ type: 'low-stock' }),
+      Notification.countDocuments({ type: 'low-stock', read: false }),
+    ]);
+
+    const critical = await Notification.countDocuments({ type: 'low-stock', read: false, message: { $regex: 'out of stock', $options: 'i' } });
+    const lowStockCount = await Notification.countDocuments({ type: 'low-stock', read: false, message: { $not: /out of stock/i } });
+
+    res.render('low-stock-alerts', {
+      username: req.employee.employeeId,
+      alerts,
+      filter: filterParam,
+      stats: { total, unread, critical, lowStock: lowStockCount },
+    });
+  } catch (err) {
+    console.error('Low stock alerts page error:', err.message);
+    res.status(500).render('errorMessage', { error: 'Could not load alerts' });
+  }
+});
+
+app.post("/admin/low-stock-alerts/:id/read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { read: true });
+    res.redirect('/admin/low-stock-alerts');
+  } catch (err) {
+    res.redirect('/admin/low-stock-alerts');
+  }
+});
+
+app.post("/admin/low-stock-alerts/:id/dismiss", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.findByIdAndDelete(req.params.id);
+    res.redirect('/admin/low-stock-alerts');
+  } catch (err) {
+    res.redirect('/admin/low-stock-alerts');
+  }
+});
+
+app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.updateMany({ type: 'low-stock', read: false }, { $set: { read: true } });
+    res.redirect('/admin/low-stock-alerts');
+  } catch (err) {
+    res.redirect('/admin/low-stock-alerts');
+  }
+});
+
+app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.deleteMany({ type: 'low-stock', read: true });
+    res.redirect('/admin/low-stock-alerts');
+  } catch (err) {
+    res.redirect('/admin/low-stock-alerts');
+  }
+});
+
+app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (req, res) => {
+  const qty = parseInt(req.body.quantity, 10);
+  if (!qty || qty < 1) return res.redirect('/admin/low-stock-alerts');
+
+  try {
+    const alert = await Notification.findById(req.params.id);
+    if (!alert) return res.redirect('/admin/low-stock-alerts');
+
+    const item = await InventoryItem.findById(alert.relatedId);
+    if (item) {
+      const oldQty = item.quantity;
+      item.quantity = qty;
+      await item.save();
+      await AuditLog.log('updated', item.name, `Restocked from ${oldQty} → ${qty} ${item.unit}`, req.user.username, 'admin', item._id);
+    }
+
+    alert.read = true;
+    await alert.save();
+
+    res.redirect('/admin/low-stock-alerts');
+  } catch (err) {
+    console.error('Restock error:', err.message);
+    res.redirect('/admin/low-stock-alerts');
+  }
+});
+
+/* ===================================================================
+   AUDIT LOG PAGE  —  GET /admin/audit-log
+   =================================================================== */
+
+app.get("/admin/audit-log", adminSessionValidation, async (req, res) => {
+  const PER_PAGE = 20;
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const { search, action, dateFrom, dateTo } = req.query;
+
+  try {
+    const filter = {};
+    if (action) filter.action = action;
+    if (search) filter.$or = [
+      { item: { $regex: search, $options: 'i' } },
+      { user: { $regex: search, $options: 'i' } },
+    ];
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo)   filter.createdAt.$lte = new Date(new Date(dateTo).setHours(23,59,59,999));
+    }
+
+    const [rawLogs, totalCount] = await Promise.all([
+      AuditLog.find(filter).sort({ createdAt: -1 }).skip((page - 1) * PER_PAGE).limit(PER_PAGE).lean(),
+      AuditLog.countDocuments(filter),
+    ]);
+
+    const events = rawLogs.map(l => ({
+      ts:      l.createdAt,
+      action:  l.action,
+      item:    l.item,
+      details: l.details || '—',
+      user:    l.user,
+      role:    l.role,
+    }));
+
+    const now = new Date();
+    const sod = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const som = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [todayCount, addedMonth, requestsMonth] = await Promise.all([
+      AuditLog.countDocuments({ createdAt: { $gte: sod } }),
+      AuditLog.countDocuments({ action: 'added', createdAt: { $gte: som } }),
+      AuditLog.countDocuments({ action: { $in: ['approved'] }, createdAt: { $gte: som } }),
+    ]);
+
+    const qsParts = [];
+    if (search)   qsParts.push('search='   + encodeURIComponent(search));
+    if (action)   qsParts.push('action='   + encodeURIComponent(action));
+    if (dateFrom) qsParts.push('dateFrom=' + encodeURIComponent(dateFrom));
+    if (dateTo)   qsParts.push('dateTo='   + encodeURIComponent(dateTo));
+
+    res.render('audit-log-admin', {
+      username: req.employee.employeeId,
+      events,
+      stats: { total: totalCount, today: todayCount, added: addedMonth, requests: requestsMonth },
+      filters: { search, action, dateFrom, dateTo },
+      page,
+      totalPages: Math.ceil(totalCount / PER_PAGE),
+      queryString: qsParts.join('&'),
+    });
+  } catch (err) {
+    console.error('Audit log page error:', err.message);
+    res.status(500).render('errorMessage', { error: 'Could not load audit log' });
   }
 });
 

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Employees — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/login.css" />
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; background: var(--color-bg); }
+
+    /* TOPBAR */
+    .topbar {
+      background: var(--color-navy);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .topbar-brand { color: #fff; font-size: 1rem; font-weight: 700; text-decoration: none; letter-spacing: -0.01em; }
+    .topbar-brand:hover { opacity: 0.9; text-decoration: none; }
+    .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-user { color: rgba(255,255,255,0.7); font-size: 0.875rem; }
+    .topbar-user strong { color: #fff; }
+    .btn-shell {
+      padding: 0.4rem 1rem;
+      border-radius: var(--radius-md);
+      font-family: var(--font-main);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .btn-shell-outline { border: 1.5px solid rgba(255,255,255,0.35); background: transparent; color: #fff; }
+    .btn-shell-outline:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.6); text-decoration: none; color: #fff; }
+    .btn-shell-solid { border: 1.5px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.15); color: #fff; }
+    .btn-shell-solid:hover { background: rgba(255,255,255,0.25); text-decoration: none; color: #fff; }
+
+    /* LAYOUT */
+    .shell { display: flex; flex: 1; overflow: hidden; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 220px;
+      background: var(--color-card);
+      border-right: 1px solid var(--color-card-border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      padding: 1.25rem 0;
+    }
+    .sidebar-section { margin-bottom: 1.5rem; }
+    .sidebar-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); padding: 0 1.25rem; margin-bottom: 0.4rem; }
+    .sidebar-link { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: var(--color-text); text-decoration: none; border-left: 3px solid transparent; transition: background var(--transition); }
+    .sidebar-link:hover { background: var(--color-bg); text-decoration: none; }
+    .sidebar-link.active { background: #eaf0f8; border-left-color: var(--color-navy); color: var(--color-navy); font-weight: 600; }
+    .sidebar-link .icon { width: 16px; text-align: center; font-size: 0.9rem; opacity: 0.75; }
+    .sidebar-bottom { margin-top: auto; padding: 1rem 1.25rem; border-top: 1px solid var(--color-card-border); font-size: 0.78rem; color: var(--color-muted); }
+    .sidebar-bottom strong { display: block; color: var(--color-text); font-size: 0.85rem; margin-bottom: 2px; }
+    .sidebar-bottom a { color: var(--color-navy); font-weight: 600; font-size: 0.8rem; }
+    .sidebar-bottom a:hover { text-decoration: underline; }
+
+    /* CONTENT */
+    .content { flex: 1; overflow-y: auto; padding: 1.75rem; }
+    .page-header { margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 1.35rem; font-weight: 700; color: var(--color-text); margin-bottom: 0.2rem; }
+    .page-header .sub { font-size: 0.85rem; color: var(--color-muted); }
+
+    /* FILTER TABS */
+    .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .tab-btn {
+      padding: 0.4rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--color-card-border);
+      background: var(--color-card);
+      font-family: var(--font-main);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--color-text);
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--color-navy);
+      color: #fff;
+      border-color: var(--color-navy);
+    }
+
+    /* TABLE */
+    .table-wrap {
+      background: var(--color-card);
+      border: 1px solid var(--color-card-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--color-bg); }
+    th { text-align: left; padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--color-card-border); }
+    td { padding: 0.9rem 1rem; font-size: 0.875rem; border-bottom: 1px solid var(--color-card-border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+    .employee-name { font-weight: 600; }
+    .employee-email { font-size: 0.78rem; color: var(--color-muted); }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
+    .badge-active   { background: #dcfce7; color: #166534; }
+    .badge-inactive { background: #f3f4f6; color: #6b7280; }
+    .badge-pending  { background: #fef9c3; color: #854d0e; }
+    .role-badge { display: inline-block; padding: 2px 10px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; background: #e0ecf8; color: var(--color-navy); }
+    .btn-row { padding: 0.3rem 0.75rem; border-radius: var(--radius-md); border: 1.5px solid var(--color-card-border); background: var(--color-card); font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--color-text); transition: background var(--transition); }
+    .btn-row:hover { background: var(--color-bg); }
+    .empty-state { text-align: center; padding: 3rem; color: var(--color-muted); font-size: 0.9rem; }
+
+    /* MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--color-card); border-radius: var(--radius-lg); width: 420px; max-width: 95vw; padding: 2rem; position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+    .modal-close { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--color-muted); }
+    .modal-close:hover { color: var(--color-text); }
+    .modal-avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--color-card-border); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 1rem; }
+    .modal-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--color-text); }
+    .modal-field { margin-bottom: 1rem; }
+    .modal-field label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--color-muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .modal-field input { width: 100%; padding: 0.55rem 0.875rem; border: 1px solid var(--color-input-border); border-radius: var(--radius-md); font-family: var(--font-main); font-size: 0.9rem; color: var(--color-text); background: var(--color-bg); }
+    .modal-field-row { display: flex; align-items: center; gap: 0.5rem; }
+    .modal-field-row input { flex: 1; }
+    .btn-danger { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fca5a5; padding: 0.4rem 0.85rem; border-radius: var(--radius-md); font-family: var(--font-main); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-primary-modal { width: 100%; background: var(--color-navy); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem; font-family: var(--font-main); font-size: 0.9375rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem; transition: background var(--transition); }
+    .btn-primary-modal:hover { background: var(--color-navy-dark); }
+
+    /* CODE RESULT BOX */
+    .code-result { display: none; background: var(--color-bg); border: 1px solid var(--color-card-border); border-radius: var(--radius-lg); padding: 1rem; }
+    .code-label { font-size: 0.72rem; font-weight: 700; color: var(--color-muted); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .code-value { font-size: 1.1rem; font-weight: 700; font-family: monospace; color: var(--color-navy); }
+    .btn-copy { width: 100%; margin-top: 1rem; border: 1.5px solid var(--color-card-border); background: var(--color-card); color: var(--color-text); border-radius: var(--radius-md); padding: 0.55rem; font-family: var(--font-main); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background var(--transition); }
+    .btn-copy:hover { background: var(--color-bg); }
+
+    /* FOOTER */
+    .site-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.5rem; border-top: 1px solid var(--color-card-border); font-size: 0.8125rem; color: var(--color-muted); background: var(--color-card); }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { color: var(--color-muted); font-size: 0.8125rem; }
+    .footer-links a:hover { color: var(--color-text); text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <nav class="topbar">
+    <a href="/admin/dashboard" class="topbar-brand">🥫 Food Bank Tracker</a>
+    <div class="topbar-right">
+      <span class="topbar-user">Admin: <strong><%= employee.name %></strong></span>
+      <button class="btn-shell btn-shell-outline" onclick="document.getElementById('generateModal').classList.add('open')">Generate Code</button>
+      <a href="/admin/employees/codes" class="btn-shell btn-shell-solid">+ Add Employee</a>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link"><span class="icon">📊</span> Dashboard</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link"><span class="icon">📦</span> All Items</a>
+        <a href="/admin/audit-log" class="sidebar-link"><span class="icon">📋</span> History &amp; Audit Log</a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link"><span class="icon">⚠️</span> Low Stock Alerts</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link active"><span class="icon">👥</span> All Employees</a>
+        <a href="/admin/employees/codes" class="sidebar-link"><span class="icon">🔑</span> Generate Codes</a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= employee.name %></strong>
+        <%= employee.employeeId %><br />
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="page-header">
+        <h1>All Employees</h1>
+        <div class="sub"><%= new Date().toLocaleDateString('en-CA', {weekday:'long',year:'numeric',month:'long',day:'numeric'}) %></div>
+      </div>
+
+      <div class="filter-tabs">
+        <button class="tab-btn active" onclick="filterTable('all', this)">All</button>
+        <button class="tab-btn" onclick="filterTable('active', this)">Active</button>
+        <button class="tab-btn" onclick="filterTable('pending', this)">Pending</button>
+        <button class="tab-btn" onclick="filterTable('inactive', this)">Inactive</button>
+      </div>
+
+      <div class="table-wrap">
+        <% if (employees && employees.length > 0) { %>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Status</th>
+                <th>Role</th>
+                <th>Last Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="employeeTableBody">
+              <% employees.forEach(function(emp) { %>
+                <tr data-status="<%= emp.isActive ? 'active' : 'inactive' %>">
+                  <td>
+                    <div class="employee-name"><%= emp.name %></div>
+                    <div class="employee-email"><%= emp.email %></div>
+                  </td>
+                  <td>
+                    <span class="badge <%= emp.isActive ? 'badge-active' : 'badge-inactive' %>">
+                      <%= emp.isActive ? 'Active' : 'Inactive' %>
+                    </span>
+                  </td>
+                  <td><span class="role-badge"><%= emp.role %></span></td>
+                  <td><%= emp.lastLogin ? new Date(emp.lastLogin).toLocaleDateString() : 'Never' %></td>
+                  <td>
+                    <button class="btn-row"
+                        onclick="openViewModal(
+                            '<%= emp.name %>',
+                            '<%= emp.email %>',
+                            '<%= emp.employeeId %>',
+                            '<%= emp.lastLogin ? new Date(emp.lastLogin).toLocaleDateString() : "Never" %>',
+                            '<%= emp._id %>'
+                        )">View</button>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="empty-state">No employees found.</div>
+        <% } %>
+      </div>
+    </main>
+  </div>
+
+  <!-- VIEW EMPLOYEE MODAL -->
+  <div class="modal-overlay" id="viewModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('viewModal')">✕</button>
+      <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem;">
+        <div class="modal-avatar">👤</div>
+        <div class="modal-name" id="modal-name"></div>
+      </div>
+      <div class="modal-field">
+        <label>Email</label>
+        <input type="text" id="modal-email" readonly />
+      </div>
+      <div class="modal-field">
+        <label>Employee Code</label>
+        <div class="modal-field-row">
+          <input type="text" id="modal-empid" readonly />
+          <button class="btn-danger" onclick="deleteEmployee()">Delete</button>
+        </div>
+      </div>
+      <div class="modal-field">
+        <label>Last Active</label>
+        <input type="text" id="modal-lastactive" readonly />
+      </div>
+      <div class="modal-field">
+        <label>Role</label>
+        <input type="text" id="modal-role" readonly />
+      </div>
+      <div class="modal-field">
+        <label>Status</label>
+        <input type="text" id="modal-status" readonly />
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERATE CODE MODAL -->
+  <div class="modal-overlay" id="generateModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('generateModal')">✕</button>
+      <h2 style="margin-bottom:0.5rem; font-size:1.1rem; color:var(--color-text);">Generate Employee Code</h2>
+      <p style="font-size:0.875rem; color:var(--color-muted); margin-bottom:1.5rem;">
+        Generate a one-time Employee ID and PIN for a new staff member to use at first login.
+      </p>
+      <button class="btn-primary-modal" onclick="generateCode()">Generate Code</button>
+      <div class="code-result" id="generateResult">
+        <div style="margin-bottom:0.75rem;">
+          <div class="code-label">Employee ID</div>
+          <div class="code-value" id="gen-empid"></div>
+        </div>
+        <div>
+          <div class="code-label">PIN</div>
+          <div class="code-value" id="gen-pin"></div>
+        </div>
+        <button class="btn-copy" onclick="copyGenerated()">Copy to Clipboard</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <span>© 2026 Food Bank Tracker</span>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+
+  <script>
+    let currentEmployeeId = null;
+
+    function openViewModal(name, email, empId, lastActive, dbId, role, status) {
+      currentEmployeeId = dbId;
+      document.getElementById('modal-name').textContent = name;
+      document.getElementById('modal-email').value = email;
+      document.getElementById('modal-empid').value = empId;
+      document.getElementById('modal-lastactive').value = lastActive;
+      document.getElementById('modal-role').value = role || '—';
+      document.getElementById('modal-status').value = status || '—';
+      document.getElementById('viewModal').classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+      if (id === 'generateModal') document.getElementById('generateResult').style.display = 'none';
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === this) {
+          this.classList.remove('open');
+          if (this.id === 'generateModal') document.getElementById('generateResult').style.display = 'none';
+        }
+      });
+    });
+
+    function filterTable(status, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('#employeeTableBody tr').forEach(row => {
+        row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
+      });
+    }
+
+    function deleteEmployee() {
+      if (!currentEmployeeId) return;
+      if (!confirm('Are you sure you want to delete this employee? This cannot be undone.')) return;
+      fetch('/admin/employees/' + currentEmployeeId, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => { if (data.success) window.location.reload(); else alert('Failed to delete employee.'); });
+    }
+
+    function generateCode() {
+      fetch('/admin/employees/generate-code', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.employeeId && data.pin) {
+            document.getElementById('gen-empid').textContent = data.employeeId;
+            document.getElementById('gen-pin').textContent = data.pin;
+            document.getElementById('generateResult').style.display = 'block';
+          } else { alert('Failed to generate code.'); }
+        });
+    }
+
+    function copyGenerated() {
+      const id = document.getElementById('gen-empid').textContent;
+      const pin = document.getElementById('gen-pin').textContent;
+      navigator.clipboard.writeText('Employee ID: ' + id + '\nPIN: ' + pin);
+      alert('Copied to clipboard!');
+    }
+  </script>
+</body>
+</html>

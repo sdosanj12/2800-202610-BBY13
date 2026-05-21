@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History &amp; Audit Log — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/login.css" />
+  <style>
+    body { display: flex; flex-direction: column; min-height: 100vh; background: var(--color-bg); }
+
+    /* TOPBAR */
+    .topbar { background: var(--color-navy); height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    .topbar-brand { color: #fff; font-size: 1rem; font-weight: 700; text-decoration: none; letter-spacing: -0.01em; }
+    .topbar-brand:hover { opacity: 0.9; text-decoration: none; }
+    .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .topbar-user { color: rgba(255,255,255,0.7); font-size: 0.875rem; }
+    .topbar-user strong { color: #fff; }
+    .btn-shell { padding: 0.4rem 1rem; border-radius: var(--radius-md); font-family: var(--font-main); font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; transition: background var(--transition); }
+    .btn-shell-outline { border: 1.5px solid rgba(255,255,255,0.35); background: transparent; color: #fff; }
+    .btn-shell-outline:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.6); text-decoration: none; color: #fff; }
+
+    /* LAYOUT */
+    .shell { display: flex; flex: 1; overflow: hidden; }
+
+    /* SIDEBAR */
+    .sidebar { width: 220px; background: var(--color-card); border-right: 1px solid var(--color-card-border); display: flex; flex-direction: column; flex-shrink: 0; padding: 1.25rem 0; }
+    .sidebar-section { margin-bottom: 1.5rem; }
+    .sidebar-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-muted); padding: 0 1.25rem; margin-bottom: 0.4rem; }
+    .sidebar-link { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 1.25rem; font-size: 0.875rem; font-weight: 500; color: var(--color-text); text-decoration: none; border-left: 3px solid transparent; transition: background var(--transition); }
+    .sidebar-link:hover { background: var(--color-bg); text-decoration: none; }
+    .sidebar-link.active { background: #eaf0f8; border-left-color: var(--color-navy); color: var(--color-navy); font-weight: 600; }
+    .sidebar-link .icon { width: 16px; text-align: center; font-size: 0.9rem; opacity: 0.75; }
+    .sidebar-bottom { margin-top: auto; padding: 1rem 1.25rem; border-top: 1px solid var(--color-card-border); font-size: 0.78rem; color: var(--color-muted); }
+    .sidebar-bottom strong { display: block; color: var(--color-text); font-size: 0.85rem; margin-bottom: 2px; }
+    .sidebar-bottom a { color: var(--color-navy); font-weight: 600; font-size: 0.8rem; }
+    .sidebar-bottom a:hover { text-decoration: underline; }
+
+    /* CONTENT */
+    .content { flex: 1; overflow-y: auto; padding: 1.75rem; }
+    .page-header { margin-bottom: 1.5rem; }
+    .page-header h1 { font-size: 1.35rem; font-weight: 700; color: var(--color-text); margin-bottom: 0.2rem; }
+    .page-header .sub { font-size: 0.85rem; color: var(--color-muted); }
+
+    /* STAT CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--color-card); border: 1px solid var(--color-card-border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .stat-label { font-size: 0.72rem; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--color-navy); line-height: 1; }
+    .stat-sub { font-size: 0.78rem; color: var(--color-muted); margin-top: 0.3rem; }
+
+    /* PANEL */
+    .panel { background: var(--color-card); border: 1px solid var(--color-card-border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 1.5rem; }
+    .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-card-border); }
+    .panel-header h2 { font-size: 1rem; font-weight: 700; color: var(--color-text); }
+
+    /* FILTER BAR */
+    .filter-bar { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--color-card-border); background: #fafbfc; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .filter-input, .filter-select, .filter-date {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--color-input-border);
+      border-radius: var(--radius-md);
+      font-family: var(--font-main);
+      font-size: 0.85rem;
+      color: var(--color-text);
+      background: var(--color-card);
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .filter-input { flex: 1; min-width: 180px; }
+    .filter-select, .filter-date { min-width: 130px; }
+    .filter-input:focus, .filter-select:focus, .filter-date:focus {
+      border-color: var(--color-navy);
+      box-shadow: 0 0 0 3px rgba(26,58,92,0.1);
+    }
+    .btn-filter { padding: 0.4rem 1rem; border-radius: var(--radius-md); border: none; background: var(--color-navy); color: #fff; font-family: var(--font-main); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: background var(--transition); }
+    .btn-filter:hover { background: var(--color-navy-dark); }
+    .btn-clear { padding: 0.4rem 1rem; border-radius: var(--radius-md); border: 1.5px solid var(--color-card-border); background: var(--color-card); color: var(--color-text); font-family: var(--font-main); font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: background var(--transition); }
+    .btn-clear:hover { background: var(--color-bg); text-decoration: none; }
+
+    /* TABLE */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--color-bg); }
+    th { text-align: left; padding: 0.75rem 1rem; font-size: 0.72rem; font-weight: 700; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--color-card-border); white-space: nowrap; }
+    td { padding: 0.875rem 1rem; font-size: 0.875rem; border-bottom: 1px solid var(--color-card-border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+    td.ts { font-size: 0.8rem; color: var(--color-muted); white-space: nowrap; }
+    td.details { max-width: 260px; color: var(--color-muted); }
+
+    /* ACTION CHIPS */
+    .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+    .chip-added     { background: #d1fae5; color: #065f46; }
+    .chip-updated   { background: #dbeafe; color: #1e40af; }
+    .chip-deleted   { background: #fee2e2; color: #991b1b; }
+    .chip-restocked { background: #fef3c7; color: #92400e; }
+    .chip-approved  { background: #ede9fe; color: #5b21b6; }
+    .chip-denied    { background: #fee2e2; color: #991b1b; }
+    .chip-pickup    { background: #d1fae5; color: #065f46; }
+
+    /* USER DOT */
+    .user-cell { display: flex; align-items: center; gap: 0.5rem; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-added     { background: #10b981; }
+    .dot-updated   { background: #3b82f6; }
+    .dot-deleted   { background: #ef4444; }
+    .dot-restocked { background: #f59e0b; }
+    .dot-approved  { background: #8b5cf6; }
+    .dot-denied    { background: #ef4444; }
+    .dot-pickup    { background: #10b981; }
+
+    /* PANEL FOOTER + PAGINATION */
+    .panel-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.25rem; border-top: 1px solid var(--color-card-border); }
+    .panel-footer small { font-size: 0.8rem; color: var(--color-muted); }
+    .pagination { display: flex; gap: 0.25rem; list-style: none; }
+    .pagination a, .pagination span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 30px;
+      padding: 0 0.5rem;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--color-card-border);
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: var(--color-text);
+      text-decoration: none;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .pagination a:hover { background: var(--color-bg); }
+    .pagination .active a, .pagination .active span { background: var(--color-navy); color: #fff; border-color: var(--color-navy); }
+    .pagination .disabled a, .pagination .disabled span { opacity: 0.4; pointer-events: none; }
+    .empty-state { text-align: center; padding: 3rem; color: var(--color-muted); font-size: 0.9rem; }
+
+    /* FOOTER */
+    .site-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1.5rem; border-top: 1px solid var(--color-card-border); font-size: 0.8125rem; color: var(--color-muted); background: var(--color-card); }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { color: var(--color-muted); font-size: 0.8125rem; }
+    .footer-links a:hover { color: var(--color-text); text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <nav class="topbar">
+    <a href="/admin/dashboard" class="topbar-brand">🥫 Food Bank Tracker</a>
+    <div class="topbar-right">
+      <span class="topbar-user">Admin: <strong><%= username %></strong></span>
+      <a href="/admin/logout" class="btn-shell btn-shell-outline">Log out</a>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link"><span class="icon">📊</span> Dashboard</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link"><span class="icon">📦</span> All Items</a>
+        <a href="/admin/audit-log" class="sidebar-link active"><span class="icon">📋</span> History &amp; Audit Log</a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link"><span class="icon">⚠️</span> Low Stock Alerts</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link"><span class="icon">👥</span> All Employees</a>
+        <a href="/admin/employees/codes" class="sidebar-link"><span class="icon">🔑</span> Generate Codes</a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= username %></strong>
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="page-header">
+        <h1>History &amp; Audit Log</h1>
+        <div class="sub"><%= new Date().toLocaleDateString('en-CA', {weekday:'long',year:'numeric',month:'long',day:'numeric'}) %></div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Events</div>
+          <div class="stat-value"><%= stats.total.toLocaleString() %></div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Today</div>
+          <div class="stat-value"><%= stats.today %></div>
+          <div class="stat-sub">Events logged today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Items Added</div>
+          <div class="stat-value"><%= stats.added %></div>
+          <div class="stat-sub">This month</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Requests</div>
+          <div class="stat-value"><%= stats.requests %></div>
+          <div class="stat-sub">Approved this month</div>
+        </div>
+      </div>
+
+      <!-- Log Panel -->
+      <div class="panel">
+        <div class="panel-header"><h2>Audit Log</h2></div>
+
+        <!-- Filter Bar -->
+        <form method="GET" action="/admin/audit-log">
+          <div class="filter-bar">
+            <input class="filter-input" type="text" name="search" placeholder="Search by item or user…" value="<%= filters.search || '' %>" />
+            <select class="filter-select" name="action">
+              <option value="">All Actions</option>
+              <% ['added','updated','deleted','approved','denied','pickup'].forEach(a => { %>
+                <option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a.charAt(0).toUpperCase()+a.slice(1) %></option>
+              <% }) %>
+            </select>
+            <input class="filter-date" type="date" name="dateFrom" value="<%= filters.dateFrom || '' %>" />
+            <input class="filter-date" type="date" name="dateTo" value="<%= filters.dateTo || '' %>" />
+            <button type="submit" class="btn-filter">Filter</button>
+            <a href="/admin/audit-log" class="btn-clear">Clear</a>
+          </div>
+        </form>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Action</th>
+                <th>Item / Subject</th>
+                <th>Details</th>
+                <th>Performed By</th>
+                <th>Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (events.length === 0) { %>
+                <tr><td colspan="6" class="empty-state">No log entries match your filters.</td></tr>
+              <% } else { %>
+                <% events.forEach(e => {
+                  const chipClass = {added:'chip-added',updated:'chip-updated',deleted:'chip-deleted',approved:'chip-approved',denied:'chip-denied',pickup:'chip-pickup'}[e.action] || '';
+                  const dotClass  = {added:'dot-added',updated:'dot-updated',deleted:'dot-deleted',approved:'dot-approved',denied:'dot-denied',pickup:'dot-pickup'}[e.action] || '';
+                %>
+                  <tr>
+                    <td class="ts"><%= new Date(e.ts).toLocaleString('en-CA',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}) %></td>
+                    <td><span class="chip <%= chipClass %>"><%= e.action.charAt(0).toUpperCase()+e.action.slice(1) %></span></td>
+                    <td style="font-weight:600;"><%= e.item %></td>
+                    <td class="details"><%= e.details %></td>
+                    <td>
+                      <div class="user-cell">
+                        <span class="dot <%= dotClass %>"></span>
+                        <%= e.user %>
+                      </div>
+                    </td>
+                    <td style="color:var(--color-muted);"><%= e.role %></td>
+                  </tr>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer / Pagination -->
+        <div class="panel-footer">
+          <small>Showing <%= events.length %> of <%= stats.total %> events</small>
+          <% if (totalPages > 1) { %>
+            <ul class="pagination">
+              <li class="<%= page <= 1 ? 'disabled' : '' %>">
+                <a href="/admin/audit-log?page=<%= page-1 %>&<%= queryString %>">‹</a>
+              </li>
+              <% for (let i = Math.max(1, page-2); i <= Math.min(totalPages, page+2); i++) { %>
+                <li class="<%= i === page ? 'active' : '' %>">
+                  <a href="/admin/audit-log?page=<%= i %>&<%= queryString %>"><%= i %></a>
+                </li>
+              <% } %>
+              <li class="<%= page >= totalPages ? 'disabled' : '' %>">
+                <a href="/admin/audit-log?page=<%= page+1 %>&<%= queryString %>">›</a>
+              </li>
+            </ul>
+          <% } %>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <span>© 2026 Food Bank Tracker</span>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+
+</body>
+</html>
