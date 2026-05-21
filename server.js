@@ -407,6 +407,17 @@ app.get("/volunteer/dashboard", (req, res) => {
   });
 });
 
+app.get("/clockin", sessionValidation, (req, res) => {
+  res.render("clock-in", {
+    isClockedIn: false,
+    staffName: req.user.username,
+    clockInTime: "",
+    shiftDate: "",
+    stats: { weekHours: "0h 0m", monthHours: "0h 0m" },
+    currentPath: "/clockin",
+  });
+});
+
 /* === Admin routes ===
  * Public: /admin/login, /admin/logout (no adminSessionValidation)
  * Protected: all others use adminSessionValidation inline
