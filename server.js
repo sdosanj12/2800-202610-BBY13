@@ -41,6 +41,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+app.use("/images", express.static(__dirname + "/images"));
 
 /* === Rate limiting === */
 
@@ -194,6 +195,19 @@ async function translateText(text, targetLanguage) {
     return text;
   }
 }
+
+/* === Global view locals middleware ===
+ * Injects the decoded JWT user (if any) into res.locals so every EJS view
+ * can reference `locals.user` — the navbar partial depends on this.
+ */
+app.use((req, res, next) => {
+  const decoded = verifyToken(req);
+  if (decoded) {
+    res.locals.user = decoded;
+  }
+  res.locals.currentPath = req.path;
+  next();
+});
 
 /* === Public routes === */
 
@@ -388,7 +402,11 @@ app.post("/submit-request", (req, res) => {
 
 app.use("/client", sessionValidation);
 app.get("/client/dashboard", (req, res) => {
-  res.render("client-dashboard", { username: req.user.username });
+  res.render("client-dashboard", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/client/dashboard",
+  });
 });
 app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
@@ -400,10 +418,25 @@ app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
   res.render("volunteer-dashboard", {
     username: req.user.username,
+    user: req.user,
+    currentPath: "/volunteer/dashboard",
     totalHours: 0,
     weeklyHours: 0,
     upcomingShifts: 0,
     recentActivity: [],
+  });
+});
+
+app.get("/clockin", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
+  res.render("clock-in", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/clockin",
+    isClockedIn: false,
+    staffName: req.user.username,
+    clockInTime: null,
+    shiftDate: null,
+    stats: { weekHours: "0h 0m", monthHours: "0h 0m" },
   });
 });
 
