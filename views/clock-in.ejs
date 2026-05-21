@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Food Bank Tracker - <%= isClockedIn ? 'Clocked In' : 'Clock In' %>
-    </title>
+    <title>Food Bank Tracker - Clock In</title>
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/clock.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,169 +27,45 @@
         <section class="clock-in-section">
             <div class="row justify-content-center">
                 <div class="col-lg-8">
-
-                    <% if (!isClockedIn) { %>
-                        <div class="card shadow-lg border-0 mb-4">
-                            <div class="card-body text-center p-5">
-                                <div class="clock-icon mb-4">
-                                    <i class="bi bi-clock-history display-1 text-success"></i>
-                                </div>
-                                <h1 class="mb-3">Clock In</h1>
-                                <p class="lead text-muted mb-4">
-                                    Welcome to the Food Bank Tracker! Ready to start your shift?
-                                </p>
-
-                                <div class="current-time-display mb-4 p-3 bg-light rounded">
-                                    <div class="current-date h5 mb-2" id="currentDate"></div>
-                                    <div class="current-time h3 mb-0 text-success fw-bold" id="currentTime"></div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <input type="text" class="form-control form-control-lg text-center" id="staffName"
-                                        placeholder="Enter your name"
-                                        value="<%= typeof staffName !== 'undefined' ? staffName : '' %>" required>
-                                </div>
-
-                                <button type="button" class="btn btn-success btn-lg rounded-pill px-5 py-3"
-                                    id="clockInBtn">
-                                    <i class="bi bi-play-circle me-2"></i>
-                                    Clock In
-                                </button>
+                    <div class="card shadow-lg border-0 mb-4">
+                        <div class="card-body text-center p-5">
+                            <div class="clock-icon mb-4">
+                                <i class="bi bi-clock-history display-1 text-success"></i>
                             </div>
+                            <h1 class="mb-3">Clock In</h1>
+                            <p class="lead text-muted mb-4">
+                                Welcome to the Food Bank Tracker! Ready to start your shift?
+                            </p>
+
+                            <div class="current-time-display mb-4 p-3 bg-light rounded">
+                                <div class="current-date h5 mb-2" id="currentDate"></div>
+                                <div class="current-time h3 mb-0 text-success fw-bold" id="currentTime"></div>
+                            </div>
+
+                            <div class="mb-4">
+                                <input type="text" class="form-control form-control-lg text-center" id="staffName"
+                                    placeholder="Enter your name"
+                                    value="<%= typeof staffName !== 'undefined' ? staffName : '' %>" required>
+                            </div>
+
+                            <button type="button" class="btn btn-success btn-lg rounded-pill px-5 py-3" id="clockInBtn">
+                                <i class="bi bi-play-circle me-2"></i>
+                                Clock In
+                            </button>
                         </div>
+                    </div>
 
-                        <div class="card shadow border-0">
-                            <div class="card-header bg-white border-0 pt-4">
-                                <h3 class="h5 mb-0">
-                                    <i class="bi bi-calendar-check me-2 text-success"></i>
-                                    Today's Shift History
-                                </h3>
-                            </div>
-                            <div class="card-body">
-                                <div id="shiftHistory" class="shift-history">
-                                </div>
-                            </div>
+                    <div class="card shadow border-0">
+                        <div class="card-header bg-white border-0 pt-4">
+                            <h3 class="h5 mb-0">
+                                <i class="bi bi-calendar-check me-2 text-success"></i>
+                                Today's Shift History
+                            </h3>
                         </div>
-
-                        <% } else { %>
-                            <div class="card shadow-lg border-0 mb-4 clocked-in-card">
-                                <div class="card-body text-center p-5">
-                                    <div class="status-indicator mb-4">
-                                        <span class="badge bg-success fs-6 px-4 py-2 pulse">
-                                            <i class="bi bi-circle-fill me-2"></i>
-                                            Currently Clocked In
-                                        </span>
-                                    </div>
-
-                                    <h1 class="mb-2">Welcome, <span id="displayName">
-                                            <%= staffName %>
-                                        </span>!</h1>
-                                    <p class="text-muted mb-4">Your shift is being tracked</p>
-
-                                    <div class="clock-in-time mb-4 p-3 bg-light rounded">
-                                        <small class="text-muted d-block mb-1">Clocked in at</small>
-                                        <div class="h5 mb-0 text-success" id="clockInTime">
-                                            <%= clockInTime %>
-                                        </div>
-                                    </div>
-
-                                    <div class="timer-container mb-4">
-                                        <div class="timer-label text-muted mb-2">
-                                            <i class="bi bi-stopwatch me-2"></i>
-                                            Shift Duration
-                                        </div>
-                                        <div id="timer" class="timer-display">
-                                            <span id="hours">00</span>
-                                            <span class="separator">:</span>
-                                            <span id="minutes">00</span>
-                                            <span class="separator">:</span>
-                                            <span id="seconds">00</span>
-                                        </div>
-                                        <div class="timer-sublabel text-muted mt-2">
-                                            <small>Hours : Minutes : Seconds</small>
-                                        </div>
-                                    </div>
-
-                                    <div class="row g-3 mb-4">
-                                        <div class="col-6">
-                                            <div class="stat-box p-3 bg-light rounded">
-                                                <i class="bi bi-calendar-week text-success d-block mb-2"></i>
-                                                <div class="h6 mb-0">This Week</div>
-                                                <div class="h4 mb-0 text-success" id="weekHours">
-                                                    <%= stats.weekHours || '0h 0m' %>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-6">
-                                            <div class="stat-box p-3 bg-light rounded">
-                                                <i class="bi bi-calendar-month text-success d-block mb-2"></i>
-                                                <div class="h6 mb-0">This Month</div>
-                                                <div class="h4 mb-0 text-success" id="monthHours">
-                                                    <%= stats.monthHours || '0h 0m' %>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <button type="button" class="btn btn-danger btn-lg rounded-pill px-5 py-3"
-                                        id="clockOutBtn">
-                                        <i class="bi bi-stop-circle me-2"></i>
-                                        Clock Out
-                                    </button>
-
-                                    <button type="button"
-                                        class="btn btn-outline-secondary btn-lg rounded-pill px-5 py-3 ms-2"
-                                        id="breakBtn">
-                                        <i class="bi bi-pause-circle me-2"></i>
-                                        <span id="breakBtnText">Take Break</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="card shadow border-0">
-                                <div class="card-header bg-white border-0 pt-4">
-                                    <h3 class="h5 mb-0">
-                                        <i class="bi bi-clock-history me-2 text-success"></i>
-                                        Current Shift Details
-                                    </h3>
-                                </div>
-                                <div class="card-body">
-                                    <div class="shift-details">
-                                        <div class="detail-row">
-                                            <span class="detail-label">Staff Name:</span>
-                                            <span class="detail-value" id="shiftName">
-                                                <%= staffName %>
-                                            </span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Date:</span>
-                                            <span class="detail-value" id="shiftDate">
-                                                <%= shiftDate %>
-                                            </span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Clock In Time:</span>
-                                            <span class="detail-value" id="shiftStartTime">
-                                                <%= clockInTime %>
-                                            </span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Current Time:</span>
-                                            <span class="detail-value" id="currentTime">-</span>
-                                        </div>
-                                        <div class="detail-row">
-                                            <span class="detail-label">Break Time:</span>
-                                            <span class="detail-value" id="breakTime">0 minutes</span>
-                                        </div>
-                                        <div class="detail-row total-row">
-                                            <span class="detail-label">Total Working Time:</span>
-                                            <span class="detail-value text-success fw-bold" id="workingTime">0h
-                                                0m</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <% } %>
+                        <div class="card-body">
+                            <div id="shiftHistory" class="shift-history"></div>
+                        </div>
+                    </div>
 
                 </div>
             </div>
