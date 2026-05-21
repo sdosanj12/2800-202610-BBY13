@@ -14,6 +14,7 @@ const User = require("./models/User");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
+const ShiftLog = require("./models/Shift");
 
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
@@ -38,7 +39,7 @@ const jwt_secret = process.env.JWT_SECRET;
  */
 
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(mongoSanitizer({ replaceWith: "_" }));
@@ -404,13 +405,13 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
 });
 
 // GET route to fetch all food requests
-app.get('/api/requests', async (req, res) => {
-    try {
-        const requests = await FoodRequest.find().sort({ createdAt: -1 });
-        res.json(requests);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching requests" });
-    }
+app.get("/api/requests", async (req, res) => {
+  try {
+    const requests = await FoodRequest.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching requests" });
+  }
 });
 
 // PATCH /api/requests/:id/approve — adminapproves a request
@@ -457,7 +458,10 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create approval notification:", notifErr.message);
+        console.error(
+          "Failed to create approval notification:",
+          notifErr.message,
+        );
       }
 
       return res
@@ -501,7 +505,9 @@ app.patch(
 
       // Create denial notification for the client
       try {
-        const reason = value.denialReason ? ` Reason: ${value.denialReason}` : "";
+        const reason = value.denialReason
+          ? ` Reason: ${value.denialReason}`
+          : "";
         await Notification.create({
           userId: updated.clientId,
           type: "request-denied",
@@ -510,7 +516,10 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create denial notification:", notifErr.message);
+        console.error(
+          "Failed to create denial notification:",
+          notifErr.message,
+        );
       }
 
       return res
@@ -641,10 +650,14 @@ app.patch(
 
       // Notify admin users on transition into low-stock or out-of-stock
       try {
-        const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+        const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(
+          item.status,
+        );
         const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
         if (isNowLowOrOut && !wasLowOrOut) {
-          const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+          const adminUsers = await User.find({ roles: "admin" })
+            .select("_id")
+            .lean();
           const notifications = adminUsers.map((u) => ({
             userId: u._id,
             type: "low-stock",
@@ -657,7 +670,10 @@ app.patch(
           }
         }
       } catch (notifErr) {
-        console.error("Failed to create low-stock notification:", notifErr.message);
+        console.error(
+          "Failed to create low-stock notification:",
+          notifErr.message,
+        );
       }
 
       return res.status(200).json({ message: "Item updated", item });
@@ -836,12 +852,10 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error("AI returned invalid JSON:", rawText);
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     const { error: validationError, value: validatedOutput } =
@@ -853,12 +867,10 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
         "Raw:",
         parsed,
       );
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     return res.status(200).json({
@@ -870,22 +882,20 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     });
   } catch (err) {
     console.error("AI parse-request error:", err.message);
-    return res
-      .status(500)
-      .json({
-        error:
-          "Something went wrong with the AI assistant. Please try again later.",
-      });
+    return res.status(500).json({
+      error:
+        "Something went wrong with the AI assistant. Please try again later.",
+    });
   }
 });
 
 /* === Notifications API === */
 
 // GET /api/notifications — current user's notifications
-app.get('/api/notifications', sessionValidation, async (req, res) => {
+app.get("/api/notifications", sessionValidation, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
-    if (req.query.unreadOnly === 'true') {
+    if (req.query.unreadOnly === "true") {
       filter.read = false;
     }
 
@@ -898,72 +908,187 @@ app.get('/api/notifications', sessionValidation, async (req, res) => {
       .limit(limit)
       .lean();
 
-    const unreadCount = await Notification.countDocuments({ userId: req.user.userId, read: false });
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user.userId,
+      read: false,
+    });
 
     return res.status(200).json({ notifications, unreadCount });
   } catch (err) {
-    console.error('Fetch notifications error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Fetch notifications error:", err.message);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
 // GET /api/notifications/unread-count — lightweight badge count
-app.get('/api/notifications/unread-count', sessionValidation, async (req, res) => {
-  try {
-    const count = await Notification.countDocuments({ userId: req.user.userId, read: false });
-    return res.status(200).json({ count });
-  } catch (err) {
-    console.error('Unread count error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+app.get(
+  "/api/notifications/unread-count",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const count = await Notification.countDocuments({
+        userId: req.user.userId,
+        read: false,
+      });
+      return res.status(200).json({ count });
+    } catch (err) {
+      console.error("Unread count error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // PATCH /api/notifications/read-all — mark all unread as read
-app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => {
-  try {
-    const result = await Notification.updateMany(
-      { userId: req.user.userId, read: false },
-      { $set: { read: true } }
-    );
-    return res.status(200).json({ updated: result.modifiedCount });
-  } catch (err) {
-    console.error('Read-all error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+app.patch(
+  "/api/notifications/read-all",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const result = await Notification.updateMany(
+        { userId: req.user.userId, read: false },
+        { $set: { read: true } },
+      );
+      return res.status(200).json({ updated: result.modifiedCount });
+    } catch (err) {
+      console.error("Read-all error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // PATCH /api/notifications/:id/read — mark single notification as read
-app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => {
-  try {
-    const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
-    if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
+app.patch(
+  "/api/notifications/:id/read",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const notification = await Notification.findById(req.params.id);
+      if (!notification)
+        return res.status(404).json({ error: "Notification not found" });
+      if (notification.userId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
-    notification.read = true;
-    await notification.save();
-    return res.status(200).json({ notification });
-  } catch (err) {
-    console.error('Mark read error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+      notification.read = true;
+      await notification.save();
+      return res.status(200).json({ notification });
+    } catch (err) {
+      console.error("Mark read error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // DELETE /api/notifications/:id — dismiss a notification
-app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
+app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+    if (!notification)
+      return res.status(404).json({ error: "Notification not found" });
     if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     await notification.deleteOne();
     return res.sendStatus(204);
   } catch (err) {
-    console.error('Delete notification error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Delete notification error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// CLOCK-IN
+
+app.get("/clock", (req, res) => {
+  res.render("clock-in");
+});
+
+app.get("/clocked-in", (req, res) => {
+  res.render("clocked-in");
+});
+
+app.post("/api/clock/in", async (req, res) => {
+  try {
+    const { staffName } = req.body;
+    if (!staffName)
+      return res.status(400).json({ error: "Staff name is required." });
+
+    const newShift = new ShiftLog({
+      staffName,
+      clockInTime: new Date(),
+    });
+    await newShift.save();
+
+    res.json({ success: true, shift: newShift });
+  } catch (err) {
+    console.error("Clock-in DB error:", err);
+    res.status(500).json({ error: "Database error during clock-in." });
+  }
+});
+
+app.post("/api/clock/break", async (req, res) => {
+  try {
+    const { shiftId, action } = req.body;
+    const shift = await ShiftLog.findById(shiftId);
+    if (!shift)
+      return res.status(404).json({ error: "Active shift not found." });
+
+    const now = new Date();
+    if (action === "start") {
+      shift.breakStartTime = now;
+    } else if (action === "end" && shift.breakStartTime) {
+      const elapsedBreak = now - new Date(shift.breakStartTime);
+      shift.breakDuration += elapsedBreak;
+      shift.breakStartTime = null;
+    }
+
+    await shift.save();
+    res.json({ success: true, shift });
+  } catch (err) {
+    console.error("Break database error:", err);
+    res.status(500).json({ error: "Database error tracking shift break." });
+  }
+});
+
+app.post("/api/clock/out", async (req, res) => {
+  try {
+    const { shiftId } = req.body;
+    const shift = await ShiftLog.findById(shiftId);
+    if (!shift)
+      return res.status(404).json({ error: "Shift document not found." });
+
+    const now = new Date();
+    if (shift.breakStartTime) {
+      shift.breakDuration += now - new Date(shift.breakStartTime);
+      shift.breakStartTime = null;
+    }
+
+    shift.clockOutTime = now;
+    await shift.save();
+
+    res.json({ success: true, shift });
+  } catch (err) {
+    console.error("Clock-out tracking error:", err);
+    res.status(500).json({ error: "Database exception checking out shift." });
+  }
+});
+
+app.get("/api/clock/history", async (req, res) => {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const logs = await ShiftLog.find({
+      clockInTime: { $gte: todayStart },
+      clockOutTime: { $ne: null },
+    }).sort({ clockInTime: -1 });
+
+    res.json(logs);
+  } catch (err) {
+    console.error("Fetch history error:", err);
+    res
+      .status(500)
+      .json({ error: "Database error compiling timeline log history." });
   }
 });
 
