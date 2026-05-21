@@ -305,3 +305,72 @@ body {
     gap: 1rem;
   }
 }
+
+/* ================================================================
+   SHARED PARTIAL STYLES — navbar.ejs + footer.ejs
+   ================================================================ */
+
+/* ── Navbar links ── */
+.nav-links {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-links a {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.nav-links a:hover {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.nav-links a.nav-active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.nav-logout {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 0.875rem !important;
+}
+
+.nav-logout:hover {
+  color: #ffffff !important;
+}
+
+/* ── Footer ── */
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  color: #6b7280;
+  background: #ffffff;
+  margin-top: auto;
+  width: 100%;
+}
+
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.footer-links a {
+  color: #6b7280;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}

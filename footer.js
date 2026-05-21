@@ -1,4 +1,4 @@
-const footerContainer = document.getElementById('footer-container');
+const footerContainer = document.getElementById("footer-container");
 
 const footerHTML = `
     <footer class="footer">

@@ -13,14 +13,7 @@
   </head>
   <body>
     <!-- Navbar  -->
-    <nav class="navbar">
-      <a href="/client/dashboard" class="nav-brand">Food Bank Tracker</a>
-      <ul class="nav-links">
-        <li><a href="/client/dashboard" class="nav-active">Dashboard</a></li>
-        <li><a href="/request">Request</a></li>
-        <li><a href="/logout" class="nav-logout">Logout</a></li>
-      </ul>
-    </nav>
+    <%- include('partials/navbar') %>
 
     <!-- Main -->
     <main class="page-content">
@@ -112,16 +105,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="site-footer">
-      <span>&copy; 2026 Food Bank Tracker</span>
-      <div class="footer-links">
-        <a href="/privacy">Privacy Policy</a>
-        <a href="/terms">Terms of Service</a>
-        <a href="/support">Contact Support</a>
-      </div>
-    </footer>
-
-    <script src="/navbar.js"></script>
+    <%- include('partials/footer') %>
 
     <script>
       function $(id) {
@@ -362,7 +346,6 @@
         $("stat-unread").textContent = "0";
       });
 
-      
       loadHistory();
       loadNotifications();
     </script>

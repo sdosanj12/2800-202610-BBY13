@@ -12,7 +12,9 @@
 
 <body>
 
-    <header id="navbar-container"></header>
+    <header>
+        <%- include('partials/navbar') %>
+    </header>
 
     <main class="container">
         <section class="card" style="text-align: center; padding: 3rem 2rem;">
@@ -31,19 +33,14 @@
             </div>
 
             <div style="margin-top: 2.5rem;">
-                <button type="button" class="btn-primary" onclick="location.href='index.html'">
+                <button type="button" class="btn-primary" onclick="location.href='/'">
                     Return to Home
                 </button>
             </div>
         </section>
     </main>
 
-    <footer class="footer">
-        <div id="footer-container"></div>
-    </footer>
-
-    <script src="navbar.js"></script>
-    <script src="footer.js"></script>
+    <%- include('partials/footer') %>
 
 </body>
 

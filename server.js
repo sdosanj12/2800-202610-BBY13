@@ -8,6 +8,7 @@ const mongoSanitizer = require("mongo-sanitizer").default;
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const methodOverride = require("method-override");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
@@ -42,6 +43,8 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+app.use("/images", express.static(__dirname + "/images"));
+app.use(methodOverride("_method"));
 
 /* === Rate limiting === */
 
@@ -195,6 +198,19 @@ async function translateText(text, targetLanguage) {
     return text;
   }
 }
+
+/* === Global view locals middleware ===
+ * Injects the decoded JWT user (if any) into res.locals so every EJS view
+ * can reference `locals.user` — the navbar partial depends on this.
+ */
+app.use((req, res, next) => {
+  const decoded = verifyToken(req);
+  if (decoded) {
+    res.locals.user = decoded;
+  }
+  res.locals.currentPath = req.path;
+  next();
+});
 
 /* === Public routes === */
 
@@ -389,7 +405,11 @@ app.post("/submit-request", (req, res) => {
 
 app.use("/client", sessionValidation);
 app.get("/client/dashboard", (req, res) => {
-  res.render("client-dashboard", { username: req.user.username });
+  res.render("client-dashboard", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/client/dashboard",
+  });
 });
 app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
@@ -401,10 +421,25 @@ app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
   res.render("volunteer-dashboard", {
     username: req.user.username,
+    user: req.user,
+    currentPath: "/volunteer/dashboard",
     totalHours: 0,
     weeklyHours: 0,
     upcomingShifts: 0,
     recentActivity: [],
+  });
+});
+
+app.get("/clockin", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
+  res.render("clock-in", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/clockin",
+    isClockedIn: false,
+    staffName: req.user.username,
+    clockInTime: null,
+    shiftDate: null,
+    stats: { weekHours: "0h 0m", monthHours: "0h 0m" },
   });
 });
 
@@ -1186,6 +1221,54 @@ app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   } catch (err) {
     console.error("Inventory delete error:", err.message);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* === Inventory Pages (Admin UI) === */
+
+// GET /inventory — render inventory management page
+app.get("/inventory", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
+  try {
+    const search = req.query.search || "";
+    const filter = search ? { name: { $regex: search, $options: "i" } } : {};
+    const items = await InventoryItem.find(filter).lean();
+    const lowStockItems = items.filter((i) => i.status === "low-stock");
+    const outOfStockItems = items.filter((i) => i.status === "out-of-stock");
+
+    res.render("inventory", {
+      username: req.user.username,
+      user: req.user,
+      currentPath: "/inventory",
+      items,
+      lowStockItems,
+      outOfStockItems,
+    });
+  } catch (err) {
+    console.error("Failed to render inventory page:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load inventory page" });
+  }
+});
+
+// GET /inventory/:id/edit — render edit form
+app.get("/inventory/:id/edit", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
+  try {
+    const item = await InventoryItem.findById(req.params.id).lean();
+    if (!item) return res.status(404).render("errorMessage", { error: "Item not found" });
+    res.render("editInventory", { item, user: req.user, currentPath: "/inventory" });
+  } catch (err) {
+    console.error("Edit inventory load error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to load edit page" });
+  }
+});
+
+// PATCH /inventory/:id — form-based update (method-override)
+app.patch("/inventory/:id", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
+  try {
+    await InventoryItem.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
+    res.redirect("/inventory");
+  } catch (err) {
+    console.error("Update error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to update item" });
   }
 });
 
