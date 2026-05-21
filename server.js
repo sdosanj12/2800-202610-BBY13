@@ -18,6 +18,7 @@ const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
+const AuditLog     = require("./models/AuditLog");
 
 const protect = require("./middleware/auth");
 
@@ -517,7 +518,40 @@ app.get("/admin/dashboard", adminSessionValidation, async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
     if (!employee) return res.redirect("/admin/login");
-    res.render("admin-dashboard", { employee });
+
+    const [
+      totalInventory,
+      lowStockCount,
+      outOfStockCount,
+      pendingRequests,
+      totalClients,
+      totalEmployees,
+      recentInventory,
+      recentEmployees,
+    ] = await Promise.all([
+      InventoryItem.countDocuments(),
+      InventoryItem.countDocuments({ status: "low-stock" }),
+      InventoryItem.countDocuments({ status: "out-of-stock" }),
+      FoodRequest.countDocuments({ status: "pending" }),
+      User.countDocuments({ roles: "client" }),
+      Employee.countDocuments({ isActive: true }),
+      InventoryItem.find().sort({ updatedAt: -1 }).limit(5).lean(),
+      Employee.find({ isActive: true }).sort({ createdAt: -1 }).limit(5).lean(),
+    ]);
+
+    res.render("admin-dashboard", {
+      employee,
+      stats: {
+        totalInventory,
+        lowStockCount,
+        outOfStockCount,
+        pendingRequests,
+        totalClients,
+        totalEmployees,
+      },
+      recentInventory,
+      recentEmployees,
+    });
   } catch (err) {
     console.error("Dashboard error:", err.message);
     res.status(500).render("errorMessage", { error: "Could not load dashboard" });
@@ -1024,6 +1058,15 @@ app.post("/api/inventory", adminSessionValidation, async (req, res) => {
       ...value,
       addedBy: req.employee.employeeDbId,
     });
+    AuditLog.create({
+      action:        "added",
+      itemName:      item.name,
+      itemId:        item._id,
+      details:       `Category: ${item.category}, Qty: ${item.quantity} ${item.unit}`,
+      performedBy:   req.employee.name,
+      performedById: req.employee._id || null,
+      role:          req.employee.role || "Admin",
+    }).catch(e => console.error("AuditLog write error:", e.message));
     return res.status(201).json({ message: "Item added", item });
   } catch (err) {
     console.error("Inventory create error:", err.message);
@@ -1144,6 +1187,15 @@ app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
       console.error("Failed to create low-stock notification:", notifErr.message);
     }
 
+    AuditLog.create({
+      action:        "updated",
+      itemName:      item.name,
+      itemId:        item._id,
+      details:       `Status: ${item.status}, Qty: ${item.quantity} ${item.unit}`,
+      performedBy:   req.employee.name,
+      performedById: req.employee._id || null,
+      role:          req.employee.role || "Admin",
+    }).catch(e => console.error("AuditLog write error:", e.message));
     return res.status(200).json({ message: "Item updated", item });
   } catch (err) {
     console.error("Inventory update error:", err.message);
@@ -1156,6 +1208,15 @@ app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   try {
     const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Item not found" });
+    AuditLog.create({
+      action:        "deleted",
+      itemName:      deleted.name,
+      itemId:        null,
+      details:       `Qty at deletion: ${deleted.quantity} ${deleted.unit}`,
+      performedBy:   req.employee.name,
+      performedById: req.employee._id || null,
+      role:          req.employee.role || "Admin",
+    }).catch(e => console.error("AuditLog write error:", e.message));
     return res.status(200).json({ message: "Item deleted", deletedId: deleted._id });
   } catch (err) {
     console.error("Inventory delete error:", err.message);
@@ -1568,6 +1629,373 @@ app.post("/profile", protect, async (req, res) => {
     });
   }
 });
+
+/* === Admin Inventory page routes === */
+
+// GET /admin/inventory — view and filter all inventory items
+app.get("/admin/inventory", adminSessionValidation, async (req, res) => {
+  try {
+    const { search, category, status, location } = req.query;
+    const filter = {};
+    if (category) filter.category = category;
+    if (status)   filter.status   = status;
+    if (location) filter.storageLocation = location;
+    if (search)   filter.name = { $regex: search, $options: "i" };
+
+    const items = await InventoryItem.find(filter)
+      .populate("addedBy", "username")
+      .sort({ name: 1 });
+
+    const all = await InventoryItem.find();
+    const stats = {
+      total:      all.length,
+      inStock:    all.filter(i => i.status === "in-stock").length,
+      lowStock:   all.filter(i => i.status === "low-stock").length,
+      outOfStock: all.filter(i => i.status === "out-of-stock").length,
+    };
+
+    const flash = req.query._flash || "";
+    res.render("manage-inventory-admin", {
+      username: req.employee.name,
+      items,
+      stats,
+      filters: { search: search || "", category: category || "", status: status || "", location: location || "" },
+      success: flash === "added" ? ["Item added successfully."] : flash === "updated" ? ["Item updated."] : flash === "deleted" ? ["Item deleted."] : [],
+      error: [],
+    });
+  } catch (err) {
+    console.error("Inventory page error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load inventory" });
+  }
+});
+
+// POST /admin/inventory — add a new item (form submission from modal)
+app.post("/admin/inventory", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name:            Joi.string().min(3).max(100).required(),
+    category:        Joi.string().valid("canned","fresh","dry","frozen","beverages","baby","other").required(),
+    quantity:        Joi.number().min(0).required(),
+    unit:            Joi.string().valid("cans","bags","boxes","units","kg","lbs","liters").required(),
+    expiryDate:      Joi.date().optional().allow(""),
+    storageLocation: Joi.string().valid("shelf","fridge","freezer","pantry").optional(),
+    notes:           Joi.string().max(500).allow("").optional(),
+  });
+
+  const { error, value } = schema.validate(req.body, { stripUnknown: true });
+  if (error) {
+    // Re-render with error
+    const items = await InventoryItem.find().populate("addedBy","username").sort({ name: 1 });
+    const all   = await InventoryItem.find();
+    return res.render("manage-inventory-admin", {
+      username: req.employee.name,
+      items,
+      stats: {
+        total: all.length,
+        inStock: all.filter(i => i.status === "in-stock").length,
+        lowStock: all.filter(i => i.status === "low-stock").length,
+        outOfStock: all.filter(i => i.status === "out-of-stock").length,
+      },
+      filters: { search:"", category:"", status:"", location:"" },
+      success: [],
+      error: [error.details[0].message],
+    });
+  }
+
+  try {
+    const newItem = await InventoryItem.create({ ...value, addedBy: req.employee.employeeDbId });
+    AuditLog.create({
+      action:        "added",
+      itemName:      newItem.name,
+      itemId:        newItem._id,
+      details:       `Category: ${newItem.category}, Qty: ${newItem.quantity} ${newItem.unit}`,
+      performedBy:   req.employee.name,
+      performedById: req.employee._id || null,
+      role:          req.employee.role || "Admin",
+    }).catch(e => console.error("AuditLog write error:", e.message));
+    res.redirect("/admin/inventory?_flash=added");
+  } catch (err) {
+    console.error("Inventory add error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to add item" });
+  }
+});
+
+// POST /admin/inventory/:id — edit or delete (method override via hidden _method field)
+app.post("/admin/inventory/:id", adminSessionValidation, async (req, res) => {
+  const method = (req.body._method || "").toUpperCase();
+
+  if (method === "DELETE") {
+    try {
+      const toDelete = await InventoryItem.findByIdAndDelete(req.params.id);
+      if (toDelete) {
+        AuditLog.create({
+          action:        "deleted",
+          itemName:      toDelete.name,
+          itemId:        null,
+          details:       `Qty at deletion: ${toDelete.quantity} ${toDelete.unit}`,
+          performedBy:   req.employee.name,
+          performedById: req.employee._id || null,
+          role:          req.employee.role || "Admin",
+        }).catch(e => console.error("AuditLog write error:", e.message));
+      }
+      return res.redirect("/admin/inventory?_flash=deleted");
+    } catch (err) {
+      console.error("Inventory delete error:", err.message);
+      return res.status(500).render("errorMessage", { error: "Failed to delete item" });
+    }
+  }
+
+  // Default: treat as PATCH (edit)
+  const schema = Joi.object({
+    name:            Joi.string().min(3).max(100).optional(),
+    category:        Joi.string().valid("canned","fresh","dry","frozen","beverages","baby","other").optional(),
+    quantity:        Joi.number().min(0).optional(),
+    unit:            Joi.string().valid("cans","bags","boxes","units","kg","lbs","liters").optional(),
+    expiryDate:      Joi.date().optional().allow(""),
+    storageLocation: Joi.string().valid("shelf","fridge","freezer","pantry").optional(),
+    notes:           Joi.string().max(500).allow("").optional(),
+  }).min(1);
+
+  const { error, value } = schema.validate(req.body, { stripUnknown: true });
+  if (error) return res.redirect("/admin/inventory?_flash=error");
+
+  try {
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).render("errorMessage", { error: "Item not found" });
+
+    const oldStatus = item.status;
+    Object.assign(item, value);
+    await item.save();
+
+    // Trigger low-stock notifications if status worsened
+    try {
+      const isNowLowOrOut = ["low-stock","out-of-stock"].includes(item.status);
+      const wasLowOrOut   = ["low-stock","out-of-stock"].includes(oldStatus);
+      if (isNowLowOrOut && !wasLowOrOut) {
+        const adminEmps = await Employee.find({ isActive: true }).select("_id").lean();
+        const notifs = adminEmps.map(u => ({
+          userId: u._id,
+          type: "low-stock",
+          message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+          relatedId: item._id,
+          relatedType: "InventoryItem",
+        }));
+        if (notifs.length) await Notification.insertMany(notifs);
+      }
+    } catch (notifErr) {
+      console.error("Low-stock notif error:", notifErr.message);
+    }
+
+    AuditLog.create({
+      action:        "updated",
+      itemName:      item.name,
+      itemId:        item._id,
+      details:       `Status: ${item.status}, Qty: ${item.quantity} ${item.unit}`,
+      performedBy:   req.employee.name,
+      performedById: req.employee._id || null,
+      role:          req.employee.role || "Admin",
+    }).catch(e => console.error("AuditLog write error:", e.message));
+    res.redirect("/admin/inventory?_flash=updated");
+  } catch (err) {
+    console.error("Inventory update error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to update item" });
+  }
+});
+
+/* === Admin Audit Log page === */
+
+// GET /admin/audit-log
+app.get("/admin/audit-log", adminSessionValidation, async (req, res) => {
+  try {
+    const { search, action, dateFrom, dateTo } = req.query;
+    const page     = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = 20;
+
+    // Build MongoDB filter
+    const filter = {};
+    if (action) filter.action = action;
+    if (search) filter.$or = [
+      { itemName:    { $regex: search, $options: "i" } },
+      { performedBy: { $regex: search, $options: "i" } },
+    ];
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = to;
+      }
+    }
+
+    const totalCount = await AuditLog.countDocuments(filter);
+    const logs       = await AuditLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+
+    // Map to the shape the EJS template expects
+    const events = logs.map(l => ({
+      ts:      l.createdAt,
+      action:  l.action,
+      item:    l.itemName,
+      details: l.details,
+      user:    l.performedBy,
+      role:    l.role,
+    }));
+
+    // Stats always from the full unfiltered collection
+    const now        = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [totalAll, todayCount, addedMonth, requestsMonth] = await Promise.all([
+      AuditLog.countDocuments(),
+      AuditLog.countDocuments({ createdAt: { $gte: todayStart } }),
+      AuditLog.countDocuments({ action: "added",    createdAt: { $gte: monthStart } }),
+      AuditLog.countDocuments({ action: "approved", createdAt: { $gte: monthStart } }),
+    ]);
+    const stats = { total: totalAll, today: todayCount, added: addedMonth, requests: requestsMonth };
+
+    // Pagination query string (without page=)
+    const qParts = [];
+    if (search)   qParts.push(`search=${encodeURIComponent(search)}`);
+    if (action)   qParts.push(`action=${encodeURIComponent(action)}`);
+    if (dateFrom) qParts.push(`dateFrom=${encodeURIComponent(dateFrom)}`);
+    if (dateTo)   qParts.push(`dateTo=${encodeURIComponent(dateTo)}`);
+    const queryString = qParts.join("&");
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    res.render("audit-log-admin", {
+      username: req.employee.name,
+      events,
+      stats,
+      filters:  { search: search || "", action: action || "", dateFrom: dateFrom || "", dateTo: dateTo || "" },
+      page,
+      totalPages,
+      queryString,
+    });
+  } catch (err) {
+    console.error("Audit log error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load audit log" });
+  }
+});
+
+
+/* === Admin Low Stock Alerts page === */
+
+// GET /admin/low-stock-alerts
+app.get("/admin/low-stock-alerts", adminSessionValidation, async (req, res) => {
+  try {
+    const filter = req.query.filter || "all";
+
+    // Query inventory items directly instead of relying on Notification documents
+    const itemQuery = { status: { $in: ["low-stock", "out-of-stock"] } };
+    if (filter === "critical")   itemQuery.status = "out-of-stock";
+    if (filter === "low-stock")  itemQuery.status = "low-stock";
+
+    let items = await InventoryItem.find(itemQuery)
+      .populate("addedBy", "username")
+      .sort({ status: 1, name: 1 })
+      .lean();
+
+    // Shape items to look like the Notification objects the EJS expects
+    const alerts = items.map(item => ({
+      _id:         item._id,
+      message:     `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+      read:        false,
+      createdAt:   item.updatedAt,
+      relatedId:   item,
+      relatedType: "InventoryItem",
+    }));
+
+    // "unread" and "read" tabs don't apply anymore — just show all for those
+    const filteredAlerts = (filter === "read") ? [] : alerts;
+
+    // Stats from inventory directly
+    const all = await InventoryItem.find({ status: { $in: ["low-stock", "out-of-stock"] } }).lean();
+    const stats = {
+      total:    all.length,
+      unread:   all.length,
+      critical: all.filter(i => i.status === "out-of-stock").length,
+      lowStock: all.filter(i => i.status === "low-stock").length,
+    };
+
+    res.render("low-stock-alerts-admin", {
+      username: req.employee.name,
+      alerts: filteredAlerts,
+      stats,
+      filter,
+    });
+  } catch (err) {
+    console.error("Low stock alerts error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load alerts" });
+  }
+});
+
+// POST /admin/low-stock-alerts/mark-all-read
+app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.updateMany({ type: "low-stock", read: false }, { $set: { read: true } });
+    res.redirect("/admin/low-stock-alerts");
+  } catch (err) {
+    console.error("Mark all read error:", err.message);
+    res.status(500).render("errorMessage", { error: "Server error" });
+  }
+});
+
+// POST /admin/low-stock-alerts/dismiss-read
+app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.deleteMany({ type: "low-stock", read: true });
+    res.redirect("/admin/low-stock-alerts");
+  } catch (err) {
+    console.error("Dismiss read error:", err.message);
+    res.status(500).render("errorMessage", { error: "Server error" });
+  }
+});
+
+// POST /admin/low-stock-alerts/:id/read
+app.post("/admin/low-stock-alerts/:id/read", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { read: true });
+    res.redirect("/admin/low-stock-alerts");
+  } catch (err) {
+    console.error("Mark read error:", err.message);
+    res.status(500).render("errorMessage", { error: "Server error" });
+  }
+});
+
+// POST /admin/low-stock-alerts/:id/dismiss
+app.post("/admin/low-stock-alerts/:id/dismiss", adminSessionValidation, async (req, res) => {
+  try {
+    await Notification.findByIdAndDelete(req.params.id);
+    res.redirect("/admin/low-stock-alerts");
+  } catch (err) {
+    console.error("Dismiss error:", err.message);
+    res.status(500).render("errorMessage", { error: "Server error" });
+  }
+});
+
+// POST /admin/low-stock-alerts/:id/restock — update inventory quantity from alert
+app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (req, res) => {
+  try {
+    const quantity = parseInt(req.body.quantity, 10);
+    if (isNaN(quantity) || quantity < 1) return res.redirect("/admin/low-stock-alerts");
+
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).render("errorMessage", { error: "Item not found" });
+
+    item.quantity = quantity;
+    await item.save(); // triggers status recompute via pre-save hook
+
+    res.redirect("/admin/low-stock-alerts");
+  } catch (err) {
+    console.error("Restock error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to restock item" });
+  }
+})
+
 
 /* === 404 catch-all === */
 
