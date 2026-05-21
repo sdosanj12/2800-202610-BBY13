@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile | Food Bank Tracker</title>
 
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/profile.css">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,19 +19,8 @@
 <body>
 
     <!-- NAVBAR -->
-    <nav class="navbar">
+    <header id="navbar-container"></header>
 
-        <a href="/" class="nav-brand">
-            Food Bank Tracker
-        </a>
-
-        <ul class="nav-links">
-            <li><a href="/">Home</a></li>
-            <li><a href="/request">Requests</a></li>
-            <li><a href="/profile" class="nav-active">Profile</a></li>
-        </ul>
-
-    </nav>
 
     <!-- MAIN -->
     <main class="container">
@@ -241,13 +230,14 @@
     </main>
 
     <!-- FOOTER -->
-    <footer class="footer">
-
-        <p>
-            © 2026 Food Bank Tracker
-        </p>
-
+    <footer id="footer-container" class="border-top py-3 mt-auto">
+        <div class="container-fluid text-center">
+            <small class="text-muted">&copy; 2026 Food Bank Tracker</small>
+        </div>
     </footer>
+
+    <script src="navbar.js"></script>
+    <script src="footer.js"></script>
 
 </body>
 

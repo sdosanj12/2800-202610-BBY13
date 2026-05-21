@@ -22,24 +22,7 @@
   </head>
 
   <body>
-    <nav class="navbar">
-      <div class="nav-left">
-        <a href="/volunteer/dashboard" class="nav-brand"> Food Bank Tracker </a>
-      </div>
-
-      <div class="nav-right">
-        <button class="icon-btn">
-          🔔
-          <span class="notification-dot"></span>
-        </button>
-
-        <a href="/profile" class="profile-btn">
-          👤 <span><%= username %></span>
-        </a>
-
-        <a href="/logout" class="logout-btn">Log Out</a>
-      </div>
-    </nav>
+    <%- include('partials/navbar') %>
 
     <div class="dashboard-layout">
       <aside class="sidebar">
@@ -244,6 +227,8 @@
 
       </main>
     </div>
+
+    <%- include('partials/footer') %>
 
     <script src="/volunteer-dashboard.js"></script>
     <% if (currentView === 'inventory') { %>
