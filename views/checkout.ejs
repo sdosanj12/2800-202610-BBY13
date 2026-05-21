@@ -17,7 +17,7 @@
 </head>
 
 <body>
-    <header>
+    <header id="navbar-container">
         <%- include('partials/navbar') %>
     </header>
 
@@ -184,9 +184,12 @@
         </div>
     </main>
 
-    <footer>
-        <%- include('partials/footer') %>
+    <footer class="footer">
+        <div id="footer-container">
+            <%- include('partials/footer') %>
+        </div>
     </footer>
+
 
     <script src="checkout.js">
     </script>

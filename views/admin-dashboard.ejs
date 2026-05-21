@@ -1,9 +1,23 @@
 <!DOCTYPE html>
 <html>
-<head><title>Admin Dashboard</title></head>
+
+<head>
+  <title>Admin Dashboard</title>
+</head>
+
 <body>
-  <h1>Welcome, <%= username %></h1>
+  <header id="navbar-container">
+    <%- include('partials/navbar') %>
+  </header>
+  <h1>Welcome, <%= username %>
+  </h1>
   <p>Admin Dashboard — placeholder</p>
   <a href="/logout">Logout</a>
+  <footer class="footer">
+    <div id="footer-container">
+      <%- include('partials/footer') %>
+    </div>
+  </footer>
 </body>
+
 </html>

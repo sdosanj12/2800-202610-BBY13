@@ -18,7 +18,6 @@
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
 
   <style>
-    /* Specific brand-override adaptations for landing aesthetics */
     body {
       background-color: var(--color-bg);
       color: var(--color-text);
@@ -67,7 +66,9 @@
 
 <body>
 
-  <header id="navbar-container"></header>
+  <header id="navbar-container">
+    <%- include('partials/navbar') %>
+  </header>
 
   <main>
 
@@ -167,10 +168,14 @@
 
   </main>
 
-  <%- include('partials/footer') %>
 
-    <script src="/navbar.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <footer class="footer">
+    <div id="footer-container">
+      <%- include('partials/footer') %>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 
