@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Bank Tracker</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Lexend+Deca:wght@100..900&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="/css/inventory.css">
+</head>
+
+<body>
+
+    <header>
+        <%- include('partials/navbar') %>
+    </header>
+
+    <main class="container my-5">
+        
+        <!-- Search Bar Container -->
+        <section class="search-bar-section mb-5">
+            <div class="card p-3 shadow-sm border-0">
+                <form class="d-flex gap-2" role="search" action="/search" method="GET">
+                    <input class="form-control form-control-lg border-2" type="search" name="query" placeholder="Search inventory items..." aria-label="Search" />
+                    <button class="btn btn-primary btn-lg px-4" type="submit">Search</button>
+                </form>
+            </div>
+        </section>
+
+        <% 
+            // Logical Inline JS: Segregating food items array by threshold status
+            const inStockItems = items.filter(item => item.quantity > 0);
+            const outOfStockItems = items.filter(item => item.quantity === 0);
+        %>
+
+        <!-- Active Inventory Table -->
+        <section class="inventory-section mb-5">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="display-6 fw-bold">Current Inventory</h1>
+                    <p class="text-muted">Manage and track available food supplies here.</p>
+                </div>
+                <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 border border-success-subtle">
+                    <%= inStockItems.length %> Distinct Items Available
+                </span>
+            </div>
+            
+            <div class="card shadow-sm border-0 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="ps-4">Item Name</th>
+                                <th scope="col">Quantity</th>
+                                <th scope="col">Storage Location</th>
+                                <th scope="col" class="pe-4">Expiration Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (inStockItems.length === 0) { %>
+                                <tr>
+                                    <td colspan="4" class="text-center py-4 text-muted">No items currently in stock.</td>
+                                </tr>
+                            <% } else { %>
+                                <% inStockItems.forEach(item => { %>
+                                    <tr>
+                                        <th scope="row" class="ps-4 fw-semibold text-dark"><%= item.name %></th>
+                                        <td>
+                                            <span class="badge <%= item.quantity < 30 ? 'bg-warning-subtle text-warning-emphasis' : 'bg-light text-dark border' %> px-2.5 py-1.5">
+                                                <%= item.quantity %> units
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="location-tag"><%= item.storageLocation %></span>
+                                        </td>
+                                        <td class="pe-4 text-secondary">
+                                            <%= new Date(item.expireDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        
+        <section class="out-of-stock-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h2 class="h3 fw-bold text-danger-emphasis">Out of Stock</h2>
+                    <p class="text-muted">These items require operational attention or restocking.</p>
+                </div>
+                <span class="badge bg-danger-subtle text-danger fs-6 px-3 py-2 border border-danger-subtle">
+                    <%= outOfStockItems.length %> Items Missing
+                </span>
+            </div>
+
+            <div class="card shadow-sm border-0 overflow-hidden border-start border-danger border-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" class="ps-4">Item Name</th>
+                                <th scope="col" class="pe-4">Assigned Storage Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (outOfStockItems.length === 0) { %>
+                                <tr>
+                                    <td colspan="2" class="text-center py-4 text-muted">All tracked items are completely stocked.</td>
+                                </tr>
+                            <% } else { %>
+                                <% outOfStockItems.forEach(item => { %>
+                                    <tr class="table-danger-row">
+                                        <th scope="row" class="ps-4 text-danger-emphasis"><%= item.name %></th>
+                                        <td class="pe-4"><span class="location-tag bg-white border text-dark"><%= item.storageLocation %></span></td>
+                                    </tr>
+                                <% }) %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <%- include('partials/footer') %>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

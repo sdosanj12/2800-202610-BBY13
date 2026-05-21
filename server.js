@@ -13,6 +13,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const { connectDB } = require("./databaseConnection");
 const User = require("./models/User");
+const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
@@ -23,23 +24,11 @@ const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const saltRounds = 12;
 const jwtExpireTime = "24h";
 const jwt_secret = process.env.JWT_SECRET;
-
-/*
- * NOTE ON STRUCTURE:
- * Routes are defined inline in this file rather than split into /routes,
- * /controllers, etc.
- *
- * Views (EJS templates) live in /views and are rendered via res.render().
- * Each role (client, admin, volunteer) gets its own dashboard view.
- *
- * The /routes, /controllers, /middleware, /models, /config folders exist
- * for Sprint 3 refactoring if the file gets too long. For Sprint 2, we
- * keep everything here for simplicity and to mirror the instructor's style.
- */
+const admin_jwt_secret = process.env.ADMIN_JWT_SECRET || jwt_secret + '_admin';
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -52,20 +41,9 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
+app.use("/images", express.static(__dirname + "/images"));
 
 /* === Rate limiting === */
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per IP
-  message: { error: "Too many login attempts. Please try again in 15 minutes." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/login", authLimiter);
-app.use("/api/auth/login", authLimiter);
-app.use("/submitUser", authLimiter);
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -135,19 +113,6 @@ function sessionValidation(req, res, next) {
   }
 }
 
-function isAdmin(req) {
-  return req.user && req.user.roles && req.user.roles.includes("admin");
-}
-
-function adminAuthorization(req, res, next) {
-  if (!isAdmin(req)) {
-    res.status(403);
-    res.render("errorMessage", { error: "Not Authorized" });
-    return;
-  }
-  next();
-}
-
 function isVolunteerOrAdmin(req) {
   return (
     req.user &&
@@ -165,6 +130,53 @@ function volunteerOrAdminAuthorization(req, res, next) {
   next();
 }
 
+function generateAdminToken(employee) {
+  return jwt.sign(
+    {
+      employeeId: employee.employeeId,
+      employeeDbId: employee._id,
+      name: employee.name,
+      role: employee.role,
+      type: "employee",
+    },
+    admin_jwt_secret,
+    { expiresIn: jwtExpireTime },
+  );
+}
+
+function verifyAdminToken(req) {
+  const token = req.cookies && req.cookies.admin_token;
+  if (!token) return null;
+  try {
+    return jwt.verify(token, admin_jwt_secret);
+  } catch (err) {
+    return null;
+  }
+}
+
+function adminSessionValidation(req, res, next) {
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    req.employee = decoded;
+    next();
+  } else {
+    res.redirect("/admin/login");
+  }
+}
+
+function isAdmin(req) {
+  return req.employee && req.employee.type === "employee";
+}
+
+function adminAuthorization(req, res, next) {
+  if (!isAdmin(req)) {
+    res.status(403);
+    res.render("errorMessage", { error: "Not Authorized" });
+    return;
+  }
+  next();
+}
+
 /* === Translation helper === */
 
 async function translateText(text, targetLanguage) {
@@ -175,7 +187,7 @@ async function translateText(text, targetLanguage) {
       generationConfig: { temperature: 0 },
     });
     const result = await model.generateContent(
-      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`
+      `Translate the following text to ${targetLanguage}. Return ONLY the translated text, no explanation:\n\n${text}`,
     );
     return result.response.text().trim();
   } catch (err) {
@@ -184,6 +196,19 @@ async function translateText(text, targetLanguage) {
   }
 }
 
+/* === Global view locals middleware ===
+ * Injects the decoded JWT user (if any) into res.locals so every EJS view
+ * can reference `locals.user` — the navbar partial depends on this.
+ */
+app.use((req, res, next) => {
+  const decoded = verifyToken(req);
+  if (decoded) {
+    res.locals.user = decoded;
+  }
+  res.locals.currentPath = req.path;
+  next();
+});
+
 /* === Public routes === */
 
 app.get("/", (req, res) => {
@@ -191,8 +216,8 @@ app.get("/", (req, res) => {
 });
 
 // food request ejs page
-app.get('/request', (req, res) => {
-    res.render('request'); 
+app.get("/request", (req, res) => {
+  res.render("request");
 });
 
 app.get("/about", (req, res) => {
@@ -254,9 +279,7 @@ app.post("/submitUser", async (req, res) => {
       });
     } else {
       console.error("Signup error:", err.message);
-      res
-        .status(500)
-        .render("errorMessage", { error: "Server error during signup" });
+      res.status(500).render("errorMessage", { error: "Server error during signup" });
     }
   }
 });
@@ -294,18 +317,14 @@ app.post("/login", async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    if (user.roles.includes("admin")) {
-      res.redirect("/admin/dashboard");
-    } else if (user.roles.includes("volunteer")) {
+    if (user.roles.includes("volunteer")) {
       res.redirect("/volunteer/dashboard");
     } else {
       res.redirect("/client/dashboard");
     }
   } catch (err) {
     console.error("Login error:", err.message);
-    res
-      .status(500)
-      .render("errorMessage", { error: "Server error during login" });
+    res.status(500).render("errorMessage", { error: "Server error during login" });
   }
 });
 
@@ -351,11 +370,7 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       return res.redirect("/login");
     }
 
-    const dashboardRole = user.roles.includes("admin")
-      ? "admin"
-      : user.roles.includes("volunteer")
-        ? "volunteer"
-        : "client";
+    const dashboardRole = user.roles.includes("volunteer") ? "volunteer" : "client";
 
     if (
       user.firstTimeMode === false ||
@@ -364,54 +379,223 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
       return res.redirect(`/${dashboardRole}/dashboard`);
     }
 
-    res.render("onboarding", {
-      username: user.username,
-      dashboardRole,
-    });
+    res.render("onboarding", { username: user.username, dashboardRole });
   } catch (err) {
     console.error("Onboarding load error:", err.message);
-    res
-      .status(500)
-      .render("errorMessage", { error: "Could not load onboarding" });
+    res.status(500).render("errorMessage", { error: "Could not load onboarding" });
   }
 });
 
 // This looks at the food request form submission
-app.post('/submit-request', (req, res) => {
-    
-    // 1. Capture the data (optional)
-    const formData = req.body; 
+app.post("/submit-request", (req, res) => {
+  // 1. Capture the data (optional)
+  const formData = req.body;
 
-    // 2. Create your reference ID
-    const ref = "FB-" + Math.floor(Math.random() * 100000);
+  // 2. Create your reference ID
+  const ref = "FB-" + Math.floor(Math.random() * 100000);
 
-    // 3. THE TRIGGER: Send the confirmation page back to the browser
-    res.render('confirmation', { referenceId: ref });
+  // 3. THE TRIGGER: Send the confirmation page back to the browser
+  res.render("confirmation", { referenceId: ref });
 });
 
 /* === Protected routes === */
 
 app.use("/client", sessionValidation);
 app.get("/client/dashboard", (req, res) => {
-  res.render("client-dashboard", { username: req.user.username });
+  res.render("client-dashboard", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/client/dashboard",
+  });
 });
 app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
 
-app.use("/admin", sessionValidation, adminAuthorization);
-app.get("/admin/dashboard", (req, res) => {
-  res.render("admin-dashboard", { username: req.user.username });
-});
+/* === Volunteer routes === */
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
-  res.render("volunteer-dashboard", { username: req.user.username });
+  res.render("volunteer-dashboard", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/volunteer/dashboard",
+    totalHours: 0,
+    weeklyHours: 0,
+    upcomingShifts: 0,
+    recentActivity: [],
+  });
+});
+
+app.get("/clockin", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
+  res.render("clock-in", {
+    username: req.user.username,
+    user: req.user,
+    currentPath: "/clockin",
+    isClockedIn: false,
+    staffName: req.user.username,
+    clockInTime: null,
+    shiftDate: null,
+    stats: { weekHours: "0h 0m", monthHours: "0h 0m" },
+  });
+});
+
+/* === Admin routes ===
+ * Public: /admin/login, /admin/logout (no adminSessionValidation)
+ * Protected: all others use adminSessionValidation inline
+ * [CHANGED] Removed app.use("/admin", adminSessionValidation) — caused route
+ * conflicts by stripping the /admin prefix. Middleware now applied per-route.
+ */
+
+app.get("/admin/login", (req, res) => {
+  const decoded = verifyAdminToken(req);
+  if (decoded && decoded.type === "employee") {
+    return res.redirect("/admin/dashboard");
+  }
+  res.render("admin-login", { error: null, prefill: "" });
+});
+
+app.post("/admin/login", async (req, res) => {
+  const { employeeId, pin } = req.body;
+
+  const idSchema = Joi.string().pattern(/^EMP-[A-Z2-9]{8}$/).required();
+  const pinSchema = Joi.string().pattern(/^\d{4,8}$/).required();
+
+  const idErr = idSchema.validate(employeeId).error;
+  const pinErr = pinSchema.validate(pin).error;
+
+  if (idErr || pinErr) {
+    return res.render("admin-login", {
+      error: "Invalid Employee ID or PIN format.",
+      prefill: employeeId || "",
+    });
+  }
+
+  try {
+    const employee = await Employee.findOne({ employeeId, isActive: true }).select("+pin");
+
+    if (!employee) {
+      return res.render("admin-login", {
+        error: "Employee ID not found or account is inactive.",
+        prefill: "",
+      });
+    }
+
+    const pinMatch = await employee.comparePin(pin);
+    if (!pinMatch) {
+      return res.render("admin-login", {
+        error: "Incorrect PIN. Please try again.",
+        prefill: employeeId,
+      });
+    }
+
+    await Employee.updateOne({ _id: employee._id }, { lastLogin: new Date() });
+
+    const token = generateAdminToken(employee);
+    res.cookie("admin_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    return res.redirect("/admin/dashboard");
+  } catch (err) {
+    console.error("Admin login error:", err.message);
+    return res.status(500).render("errorMessage", { error: "Server error during admin login" });
+  }
+});
+
+app.get("/admin/logout", (req, res) => {
+  res.clearCookie("admin_token");
+  res.redirect("/admin/login");
+});
+
+// [CHANGED] Dashboard — active sidebar item is "Dashboard"
+app.get("/admin/dashboard", adminSessionValidation, async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
+    if (!employee) return res.redirect("/admin/login");
+    res.render("admin-dashboard", { employee });
+  } catch (err) {
+    console.error("Dashboard error:", err.message);
+    res.status(500).render("errorMessage", { error: "Could not load dashboard" });
+  }
+});
+
+// [ADDED] GET /admin/employees — All Employees page
+app.get("/admin/employees", adminSessionValidation, async (req, res) => {
+  try {
+    const employees = await Employee.find().sort({ createdAt: -1 });
+    res.render("admin-employees", { employee: req.employee, employees });
+  } catch (err) {
+    console.error("Employees list error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to load employees" });
+  }
+});
+
+// [ADDED] GET /admin/employees/codes — Add Employee form
+app.get("/admin/employees/codes", adminSessionValidation, (req, res) => {
+  res.render("admin-generate-codes", { employee: req.employee });
+});
+
+// [CHANGED] POST /admin/employees/generate-code — creates a full employee record
+// Previously generated a nameless "Pending" employee with a random PIN.
+// Now accepts name, email, role, department, and PIN from the form.
+app.post("/admin/employees/generate-code", adminSessionValidation, async (req, res) => {
+  try {
+    const { name, email, role, department, pin } = req.body;
+
+    if (!name || !email || !pin) {
+      return res.status(400).json({ error: "Name, email and PIN are required." });
+    }
+
+    if (!/^\d{4,8}$/.test(pin)) {
+      return res.status(400).json({ error: "PIN must be 4–8 digits." });
+    }
+
+    const newEmployee = new Employee({
+      name,
+      email,
+      role: role || "staff",
+      department: department || "General",
+      pin,
+      isActive: true,
+    });
+
+    await newEmployee.save();
+
+    res.json({
+      employeeId:  newEmployee.employeeId,
+      name:        newEmployee.name,
+      email:       newEmployee.email,
+      role:        newEmployee.role,
+      department:  newEmployee.department,
+      pin, // plain PIN returned once before hashing takes effect
+    });
+  } catch (err) {
+    console.error("Generate employee error:", err.message);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "An employee with that email already exists." });
+    }
+    res.status(500).json({ error: "Failed to create employee." });
+  }
+});
+
+// [ADDED] DELETE /admin/employees/:id — delete an employee record
+app.delete("/admin/employees/:id", adminSessionValidation, async (req, res) => {
+  try {
+    const deleted = await Employee.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ success: false, error: "Employee not found" });
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Employee delete error:", err.message);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
 });
 
 /* === Food Request API === */
 
-// A1: POST /api/requests — client submits a food request
+// POST /api/requests — client submits a food request
 app.post(
   "/api/requests",
   (req, res, next) => {
@@ -431,7 +615,7 @@ app.post(
     const { error, value } = schema.validate(req.body);
     if (error) return res.status(400).json({ error: error.details[0].message });
 
-    try {
+    try { 
       const request = await FoodRequest.create({
         clientId: req.user.userId,
         householdSize: value.householdSize,
@@ -449,7 +633,7 @@ app.post(
   },
 );
 
-// GET /api/requests/pending — adminviews all pending requests (FIFO)
+// GET /api/requests/pending — admin views all pending requests (FIFO)
 app.get(
   "/api/requests/pending",
   sessionValidation,
@@ -470,9 +654,7 @@ app.get(
 // GET /api/requests/me — client views their own request history
 app.get("/api/requests/me", sessionValidation, async (req, res) => {
   try {
-    const requests = await FoodRequest.find({ clientId: req.user.userId }).sort(
-      { createdAt: -1 },
-    );
+    const requests = await FoodRequest.find({ clientId: req.user.userId }).sort({ createdAt: -1 });
     return res.status(200).json({ count: requests.length, requests });
   } catch (err) {
     console.error("Fetch my requests error:", err.message);
@@ -481,16 +663,16 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
 });
 
 // GET route to fetch all food requests
-app.get('/api/requests', async (req, res) => {
-    try {
-        const requests = await FoodRequest.find().sort({ createdAt: -1 });
-        res.json(requests);
-    } catch (err) {
-        res.status(500).json({ message: "Error fetching requests" });
-    }
+app.get("/api/requests", async (req, res) => {
+  try {
+    const requests = await FoodRequest.find().sort({ createdAt: -1 });
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching requests" });
+  }
 });
 
-// PATCH /api/requests/:id/approve — adminapproves a request
+// PATCH /api/requests/:id/approve — admin approves a request
 app.patch(
   "/api/requests/:id/approve",
   sessionValidation,
@@ -498,15 +680,11 @@ app.patch(
   async (req, res) => {
     const schema = Joi.object({
       pickupDate: Joi.date().greater("now").required(),
-      pickupTime: Joi.string()
-        .pattern(/^([01]\d|2[0-3]):([0-5]\d)$/)
-        .required(),
+      pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
     });
 
     const { error, value } = schema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
       const updated = await FoodRequest.findByIdAndUpdate(
@@ -523,7 +701,6 @@ app.patch(
 
       if (!updated) return res.status(404).json({ error: "Request not found" });
 
-      // Create approval notification for the client
       try {
         const pickupDateStr = new Date(value.pickupDate).toLocaleDateString();
         await Notification.create({
@@ -534,12 +711,13 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create approval notification:", notifErr.message);
+        console.error(
+          "Failed to create approval notification:",
+          notifErr.message,
+        );
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request approved", request: updated });
+      return res.status(200).json({ message: "Request approved", request: updated });
     } catch (err) {
       console.error("Approve error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -547,7 +725,7 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/deny — admindenies a request
+// PATCH /api/requests/:id/deny — admin denies a request
 app.patch(
   "/api/requests/:id/deny",
   sessionValidation,
@@ -558,9 +736,7 @@ app.patch(
     });
 
     const { error, value } = schema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+    if (error) return res.status(400).json({ error: error.details[0].message });
 
     try {
       const updated = await FoodRequest.findByIdAndUpdate(
@@ -576,9 +752,10 @@ app.patch(
 
       if (!updated) return res.status(404).json({ error: "Request not found" });
 
-      // Create denial notification for the client
       try {
-        const reason = value.denialReason ? ` Reason: ${value.denialReason}` : "";
+        const reason = value.denialReason
+          ? ` Reason: ${value.denialReason}`
+          : "";
         await Notification.create({
           userId: updated.clientId,
           type: "request-denied",
@@ -587,12 +764,13 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create denial notification:", notifErr.message);
+        console.error(
+          "Failed to create denial notification:",
+          notifErr.message,
+        );
       }
 
-      return res
-        .status(200)
-        .json({ message: "Request denied", request: updated });
+      return res.status(200).json({ message: "Request denied", request: updated });
     } catch (err) {
       console.error("Deny error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -612,7 +790,7 @@ app.patch(
           Joi.object({
             itemId: Joi.string().required(),
             quantity: Joi.number().integer().min(1).required(),
-          })
+          }),
         )
         .min(1)
         .required(),
@@ -626,25 +804,25 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot allocate items to a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
-      // Validate each item exists and has enough quantity
       for (const item of value.items) {
         const inventoryItem = await InventoryItem.findById(item.itemId);
         if (!inventoryItem) {
-          return res.status(404).json({ error: `Inventory item '${item.itemId}' not found` });
+          return res
+            .status(404)
+            .json({ error: `Inventory item '${item.itemId}' not found` });
         }
         if (inventoryItem.quantity < item.quantity) {
-          return res
-            .status(400)
-            .json({ error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}` });
+          return res.status(400).json({
+            error: `Insufficient quantity for '${inventoryItem.name}'. Available: ${inventoryItem.quantity}, requested: ${item.quantity}`,
+          });
         }
       }
 
-      // Save allocated items on the request (do NOT decrement inventory yet)
       request.itemsAllocated = value.items.map((i) => ({
         itemId: i.itemId,
         quantity: i.quantity,
@@ -653,10 +831,12 @@ app.patch(
 
       const updated = await FoodRequest.findById(request._id).populate(
         "itemsAllocated.itemId",
-        "name category quantity unit"
+        "name category quantity unit",
       );
 
-      return res.status(200).json({ message: "Items allocated", request: updated });
+      return res
+        .status(200)
+        .json({ message: "Items allocated", request: updated });
     } catch (err) {
       console.error("Allocate error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -675,23 +855,21 @@ app.patch(
       if (!request) return res.status(404).json({ error: "Request not found" });
 
       if (request.status !== "approved") {
-        return res
-          .status(400)
-          .json({ error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.` });
+        return res.status(400).json({
+          error: `Cannot confirm pickup for a request with status '${request.status}'. Request must be approved.`,
+        });
       }
 
       if (!request.itemsAllocated || request.itemsAllocated.length === 0) {
-        return res
-          .status(400)
-          .json({ error: "Allocate items before confirming pickup." });
+        return res.status(400).json({ error: "Allocate items before confirming pickup." });
       }
 
-      // Decrement inventory for each allocated item
-      // Note: partial-failure is acceptable for COMP 2800 scope (no transactions)
       for (const allocation of request.itemsAllocated) {
         const item = await InventoryItem.findById(allocation.itemId);
         if (!item) {
-          console.error(`Pickup: inventory item ${allocation.itemId} not found, skipping`);
+          console.error(
+            `Pickup: inventory item ${allocation.itemId} not found, skipping`,
+          );
           continue;
         }
 
@@ -703,14 +881,17 @@ app.patch(
 
         const oldStatus = item.status;
         item.quantity -= allocation.quantity;
-        await item.save(); // pre-save hook fires, auto-updates status
+        await item.save();
 
-        // Fire low-stock/out-of-stock notification if status transitioned
         try {
-          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+          const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(
+            item.status,
+          );
           const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
           if (isNowLowOrOut && !wasLowOrOut) {
-            const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
+            const adminUsers = await User.find({ roles: "admin" })
+              .select("_id")
+              .lean();
             const notifications = adminUsers.map((u) => ({
               userId: u._id,
               type: "low-stock",
@@ -723,18 +904,23 @@ app.patch(
             }
           }
         } catch (notifErr) {
-          console.error("Failed to create low-stock notification during pickup:", notifErr.message);
+          console.error(
+            "Failed to create low-stock notification during pickup:",
+            notifErr.message,
+          );
         }
       }
 
-      // Mark request as picked-up
       request.status = "picked-up";
       await request.save();
 
       // Create pickup-confirmed notification for the client (translated if non-English)
       try {
-        const englishMessage = "Your food request pickup has been confirmed. Thank you!";
-        const client = await User.findById(request.clientId).select("preferredLanguage").lean();
+        const englishMessage =
+          "Your food request pickup has been confirmed. Thank you!";
+        const client = await User.findById(request.clientId)
+          .select("preferredLanguage")
+          .lean();
         const lang = client?.preferredLanguage || "en";
         const message = await translateText(englishMessage, lang);
 
@@ -748,15 +934,20 @@ app.patch(
           relatedType: "FoodRequest",
         });
       } catch (notifErr) {
-        console.error("Failed to create pickup-confirmed notification:", notifErr.message);
+        console.error(
+          "Failed to create pickup-confirmed notification:",
+          notifErr.message,
+        );
       }
 
       const updated = await FoodRequest.findById(request._id).populate(
         "itemsAllocated.itemId",
-        "name category quantity unit"
+        "name category quantity unit",
       );
 
-      return res.status(200).json({ message: "Pickup confirmed", request: updated });
+      return res
+        .status(200)
+        .json({ message: "Pickup confirmed", request: updated });
     } catch (err) {
       console.error("Pickup error:", err.message);
       return res.status(500).json({ error: "Server error" });
@@ -765,89 +956,80 @@ app.patch(
 );
 
 // PATCH /api/requests/:id/cancel — client cancels their own pending request
-app.patch(
-  "/api/requests/:id/cancel",
-  sessionValidation,
-  async (req, res) => {
-    const schema = Joi.object({
-      id: Joi.string()
-        .pattern(/^[0-9a-fA-F]{24}$/)
-        .required(),
-    });
+app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    id: Joi.string()
+      .pattern(/^[0-9a-fA-F]{24}$/)
+      .required(),
+  });
 
-    const { error } = schema.validate(req.params);
-    if (error) {
-      return res.status(400).json({ error: "Invalid request ID" });
-    }
+  const { error } = schema.validate(req.params);
+  if (error) {
+    return res.status(400).json({ error: "Invalid request ID" });
+  }
 
-    try {
-      const request = await FoodRequest.findById(req.params.id);
-      if (!request) return res.status(404).json({ error: "Request not found" });
+  try {
+    const request = await FoodRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
 
-      if (request.clientId.toString() !== req.user.userId) {
-        return res.status(403).json({ error: "You can only cancel your own requests" });
-      }
-
-      if (request.status !== "pending") {
-        return res
-          .status(400)
-          .json({ error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.` });
-      }
-
-      request.status = "cancelled";
-      await request.save();
-
+    if (request.clientId.toString() !== req.user.userId) {
       return res
-        .status(200)
-        .json({ message: "Request cancelled", request });
-    } catch (err) {
-      console.error("Cancel error:", err.message);
-      return res.status(500).json({ error: "Server error" });
+        .status(403)
+        .json({ error: "You can only cancel your own requests" });
     }
-  },
-);
+
+    if (request.status !== "pending") {
+      return res.status(400).json({
+        error: `Cannot cancel a request with status '${request.status}'. Only pending requests can be cancelled.`,
+      });
+    }
+
+    request.status = "cancelled";
+    await request.save();
+
+    return res.status(200).json({ message: "Request cancelled", request });
+  } catch (err) {
+    console.error("Cancel error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
 /* === Inventory API === */
 
-// POST /api/inventory — adminadds an item
-app.post(
-  "/api/inventory",
-  sessionValidation,
-  adminAuthorization,
-  async (req, res) => {
-    const schema = Joi.object({
-      name: Joi.string().min(3).max(100).required(),
-      category: Joi.string()
-        .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
-        .required(),
-      quantity: Joi.number().min(0).required(),
-      unit: Joi.string()
-        .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
-        .required(),
-      expiryDate: Joi.date().greater("now").optional(),
-      storageLocation: Joi.string()
-        .valid("shelf", "fridge", "freezer", "pantry")
-        .optional(),
-      notes: Joi.string().max(500).allow("").optional(),
+// POST /api/inventory — admin adds an inventory item
+app.post("/api/inventory", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).required(),
+    category: Joi.string()
+      .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
+      .required(),
+    quantity: Joi.number().min(0).required(),
+    unit: Joi.string()
+      .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
+      .required(),
+    expiryDate: Joi.date().greater("now").optional(),
+    storageLocation: Joi.string()
+      .valid("shelf", "fridge", "freezer", "pantry")
+      .optional(),
+    notes: Joi.string().max(500).allow("").optional(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const item = await InventoryItem.create({
+      ...value,
+      addedBy: req.employee.employeeDbId,
     });
+    return res.status(201).json({ message: "Item added", item });
+  } catch (err) {
+    console.error("Inventory create error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-
-    try {
-      const item = await InventoryItem.create({
-        ...value,
-        addedBy: req.user.userId,
-      });
-      return res.status(201).json({ message: "Item added", item });
-    } catch (err) {
-      console.error("Inventory create error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
-
-// GET /api/inventory — any authed user, supports ?status, ?category, ?expiringSoon=true
+// GET /api/inventory — any authed user
 app.get("/api/inventory", sessionValidation, async (req, res) => {
   try {
     const filter = {};
@@ -865,7 +1047,6 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
 
     let result = items.map((i) => i.toObject());
 
-    // Optionally include allocated quantities across approved (not yet picked-up) requests
     if (req.query.includeAllocated === "true") {
       const allocations = await FoodRequest.aggregate([
         { $match: { status: "approved" } },
@@ -897,114 +1078,95 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
 });
 
 // GET /api/inventory/low-stock — admin dashboard view
-app.get(
-  "/api/inventory/low-stock",
-  sessionValidation,
-  adminAuthorization,
-  async (req, res) => {
+app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => {
+  try {
+    const items = await InventoryItem.find({
+      status: { $in: ["low-stock", "out-of-stock"] },
+    })
+      .populate("addedBy", "username")
+      .sort({ name: 1 });
+    return res.status(200).json({ count: items.length, items });
+  } catch (err) {
+    console.error("Low-stock fetch error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /api/inventory/:id — admin updates an inventory item
+// PATCH /api/inventory/:id — admin updates an inventory item
+app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).optional(),
+    category: Joi.string()
+      .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
+      .optional(),
+    quantity: Joi.number().min(0).optional(),
+    unit: Joi.string()
+      .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
+      .optional(),
+    expiryDate: Joi.date().optional(),
+    storageLocation: Joi.string()
+      .valid("shelf", "fridge", "freezer", "pantry")
+      .optional(),
+    notes: Joi.string().max(500).allow("").optional(),
+  }).min(1);
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const item = await InventoryItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+
+    const oldStatus = item.status;
+    Object.assign(item, value);
+    await item.save();
+
     try {
-      const items = await InventoryItem.find({
-        status: { $in: ["low-stock", "out-of-stock"] },
-      })
-        .populate("addedBy", "username")
-        .sort({ name: 1 });
-      return res.status(200).json({ count: items.length, items });
-    } catch (err) {
-      console.error("Low-stock fetch error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
-
-// PATCH /api/inventory/:id — adminupdates an item (status auto-recomputes via pre-hook)
-app.patch(
-  "/api/inventory/:id",
-  sessionValidation,
-  adminAuthorization,
-  async (req, res) => {
-    const schema = Joi.object({
-      name: Joi.string().min(3).max(100).optional(),
-      category: Joi.string()
-        .valid("canned", "fresh", "dry", "frozen", "beverages", "baby", "other")
-        .optional(),
-      quantity: Joi.number().min(0).optional(),
-      unit: Joi.string()
-        .valid("cans", "bags", "boxes", "units", "kg", "lbs", "liters")
-        .optional(),
-      expiryDate: Joi.date().optional(),
-      storageLocation: Joi.string()
-        .valid("shelf", "fridge", "freezer", "pantry")
-        .optional(),
-      notes: Joi.string().max(500).allow("").optional(),
-    }).min(1);
-
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-
-    try {
-      const item = await InventoryItem.findById(req.params.id);
-      if (!item) return res.status(404).json({ error: "Item not found" });
-
-      const oldStatus = item.status;
-      Object.assign(item, value);
-      await item.save();
-
-      // Notify admin users on transition into low-stock or out-of-stock
-      try {
-        const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
-        const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
-        if (isNowLowOrOut && !wasLowOrOut) {
-          const adminUsers = await User.find({ roles: "admin" }).select("_id").lean();
-          const notifications = adminUsers.map((u) => ({
-            userId: u._id,
-            type: "low-stock",
-            message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
-            relatedId: item._id,
-            relatedType: "InventoryItem",
-          }));
-          if (notifications.length > 0) {
-            await Notification.insertMany(notifications);
-          }
+      const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(item.status);
+      const wasLowOrOut = ["low-stock", "out-of-stock"].includes(oldStatus);
+      if (isNowLowOrOut && !wasLowOrOut) {
+        const adminUsers = await Employee.find({ isActive: true }).select("_id").lean();
+        const notifications = adminUsers.map((u) => ({
+          userId: u._id,
+          type: "low-stock",
+          message: `${item.name} is ${item.status === "out-of-stock" ? "out of stock" : "running low"} (${item.quantity} ${item.unit} remaining).`,
+          relatedId: item._id,
+          relatedType: "InventoryItem",
+        }));
+        if (notifications.length > 0) {
+          await Notification.insertMany(notifications);
         }
-      } catch (notifErr) {
-        console.error("Failed to create low-stock notification:", notifErr.message);
       }
-
-      return res.status(200).json({ message: "Item updated", item });
-    } catch (err) {
-      console.error("Inventory update error:", err.message);
-      return res.status(500).json({ error: "Server error" });
+    } catch (notifErr) {
+      console.error("Failed to create low-stock notification:", notifErr.message);
     }
-  },
-);
 
-// DELETE /api/inventory/:id — adminremoves an item
-app.delete(
-  "/api/inventory/:id",
-  sessionValidation,
-  adminAuthorization,
-  async (req, res) => {
-    try {
-      const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: "Item not found" });
-      return res
-        .status(200)
-        .json({ message: "Item deleted", deletedId: deleted._id });
-    } catch (err) {
-      console.error("Inventory delete error:", err.message);
-      return res.status(500).json({ error: "Server error" });
-    }
-  },
-);
+    return res.status(200).json({ message: "Item updated", item });
+  } catch (err) {
+    console.error("Inventory update error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-/* === User Preferences API (Pop-Up Challenge) === */
+// DELETE /api/inventory/:id — admin deletes an inventory item
+app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
+  try {
+    const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: "Item not found" });
+    return res.status(200).json({ message: "Item deleted", deletedId: deleted._id });
+  } catch (err) {
+    console.error("Inventory delete error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
-// C1: GET /api/user/preferences — returns firstTimeMode + hintsSeen
+/* === User Preferences API === */
+
+// GET /api/user/preferences
 app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select(
-      "firstTimeMode hintsSeen",
-    );
+    const user = await User.findById(req.user.userId).select("firstTimeMode hintsSeen");
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.status(200).json({
       firstTimeMode: user.firstTimeMode,
@@ -1016,7 +1178,7 @@ app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   }
 });
 
-// C2: PATCH /api/user/preferences — toggle firstTimeMode OR add a hint to hintsSeen
+// PATCH /api/user/preferences
 app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
   const schema = Joi.object({
     firstTimeMode: Joi.boolean(),
@@ -1092,22 +1254,17 @@ const aiOutputSchema = Joi.object({
   warnings: Joi.array().items(Joi.string()).default([]),
 });
 
-// POST /api/ai/parse-request — AI parses natural-language description into structured request data
+// POST /api/ai/parse-request
 app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
   const inputSchema = Joi.object({
     description: Joi.string().min(10).max(2000).required(),
   });
 
   const { error, value } = inputSchema.validate(req.body);
-  if (error) {
-    return res.status(400).json({ error: error.details[0].message });
-  }
+  if (error) return res.status(400).json({ error: error.details[0].message });
 
   try {
-    // Card 1C: Fetch previous requests for personalization
-    const previousRequests = await FoodRequest.find({
-      clientId: req.user.userId,
-    })
+    const previousRequests = await FoodRequest.find({ clientId: req.user.userId })
       .sort({ createdAt: -1 })
       .limit(3)
       .select("householdSize dietaryNeeds notes clientNotes")
@@ -1134,24 +1291,17 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
     });
 
     let rawText = result.response.text();
-
-    // Strip markdown code fences if present
-    rawText = rawText
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    rawText = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
     let parsed;
     try {
       parsed = JSON.parse(rawText);
     } catch (parseErr) {
       console.error("AI returned invalid JSON:", rawText);
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     const { error: validationError, value: validatedOutput } =
@@ -1163,39 +1313,32 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
         "Raw:",
         parsed,
       );
-      return res
-        .status(502)
-        .json({
-          error:
-            "AI returned unexpected response, please try rephrasing your description.",
-        });
+      return res.status(502).json({
+        error:
+          "AI returned unexpected response, please try rephrasing your description.",
+      });
     }
 
     return res.status(200).json({
       parsed: validatedOutput,
-      meta: {
-        model: "gemini-2.5-flash",
-        usedPreviousRequests,
-      },
+      meta: { model: "gemini-2.5-flash", usedPreviousRequests },
     });
   } catch (err) {
     console.error("AI parse-request error:", err.message);
-    return res
-      .status(500)
-      .json({
-        error:
-          "Something went wrong with the AI assistant. Please try again later.",
-      });
+    return res.status(500).json({
+      error:
+        "Something went wrong with the AI assistant. Please try again later.",
+    });
   }
 });
 
 /* === Notifications API === */
 
 // GET /api/notifications — current user's notifications
-app.get('/api/notifications', sessionValidation, async (req, res) => {
+app.get("/api/notifications", sessionValidation, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
-    if (req.query.unreadOnly === 'true') {
+    if (req.query.unreadOnly === "true") {
       filter.read = false;
     }
 
@@ -1208,183 +1351,175 @@ app.get('/api/notifications', sessionValidation, async (req, res) => {
       .limit(limit)
       .lean();
 
-    const unreadCount = await Notification.countDocuments({ userId: req.user.userId, read: false });
+    const unreadCount = await Notification.countDocuments({
+      userId: req.user.userId,
+      read: false,
+    });
 
     return res.status(200).json({ notifications, unreadCount });
   } catch (err) {
-    console.error('Fetch notifications error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Fetch notifications error:", err.message);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
 // GET /api/notifications/unread-count — lightweight badge count
-app.get('/api/notifications/unread-count', sessionValidation, async (req, res) => {
-  try {
-    const count = await Notification.countDocuments({ userId: req.user.userId, read: false });
-    return res.status(200).json({ count });
-  } catch (err) {
-    console.error('Unread count error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+app.get(
+  "/api/notifications/unread-count",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const count = await Notification.countDocuments({
+        userId: req.user.userId,
+        read: false,
+      });
+      return res.status(200).json({ count });
+    } catch (err) {
+      console.error("Unread count error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // PATCH /api/notifications/read-all — mark all unread as read
-app.patch('/api/notifications/read-all', sessionValidation, async (req, res) => {
-  try {
-    const result = await Notification.updateMany(
-      { userId: req.user.userId, read: false },
-      { $set: { read: true } }
-    );
-    return res.status(200).json({ updated: result.modifiedCount });
-  } catch (err) {
-    console.error('Read-all error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+app.patch(
+  "/api/notifications/read-all",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const result = await Notification.updateMany(
+        { userId: req.user.userId, read: false },
+        { $set: { read: true } },
+      );
+      return res.status(200).json({ updated: result.modifiedCount });
+    } catch (err) {
+      console.error("Read-all error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // PATCH /api/notifications/:id/read — mark single notification as read
-app.patch('/api/notifications/:id/read', sessionValidation, async (req, res) => {
-  try {
-    const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
-    if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
+app.patch(
+  "/api/notifications/:id/read",
+  sessionValidation,
+  async (req, res) => {
+    try {
+      const notification = await Notification.findById(req.params.id);
+      if (!notification)
+        return res.status(404).json({ error: "Notification not found" });
+      if (notification.userId.toString() !== req.user.userId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
-    notification.read = true;
-    await notification.save();
-    return res.status(200).json({ notification });
-  } catch (err) {
-    console.error('Mark read error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+      notification.read = true;
+      await notification.save();
+      return res.status(200).json({ notification });
+    } catch (err) {
+      console.error("Mark read error:", err.message);
+      return res.status(500).json({ error: "Server error" });
+    }
+  },
+);
 
 // DELETE /api/notifications/:id — dismiss a notification
-app.delete('/api/notifications/:id', sessionValidation, async (req, res) => {
+app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
-    if (!notification) return res.status(404).json({ error: 'Notification not found' });
+    if (!notification)
+      return res.status(404).json({ error: "Notification not found" });
     if (notification.userId.toString() !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     await notification.deleteOne();
     return res.sendStatus(204);
   } catch (err) {
-    console.error('Delete notification error:', err.message);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Delete notification error:", err.message);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
 // SAVE SETTINGS TO USER PROFILE
 app.post("/api/profile", protect, async (req, res) => {
-
   try {
-
-    const {
-      householdSize,
-      allergies,
-      dietaryRestrictions
-    } = req.body;
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       {
         householdSize,
         allergies,
-        dietaryRestrictions
+        dietaryRestrictions,
       },
       {
-        new: true
-      }
+        new: true,
+      },
     );
 
     res.json({
       success: true,
-      user: updatedUser
+      user: updatedUser,
     });
-
   } catch (err) {
-
     console.error("Profile update error:", err);
 
     res.status(500).json({
       success: false,
-      message: "Server error"
+      message: "Server error",
     });
   }
 });
 // PROFILE PAGE
 app.get("/profile", protect, async (req, res) => {
-
   try {
-
     const user = await User.findById(req.user._id);
 
     res.render("profile", {
-      user
+      user,
     });
-
   } catch (err) {
-
     console.error(err);
 
     res.render("profile", {
       user: {},
-      error: "Failed to load profile"
+      error: "Failed to load profile",
     });
   }
 });
 
-
 // SAVE PROFILE
 app.post("/profile", protect, async (req, res) => {
-
   try {
-
-    const {
-      householdSize,
-      allergies,
-      dietaryRestrictions
-    } = req.body;
+    const { householdSize, allergies, dietaryRestrictions } = req.body;
 
     await User.findByIdAndUpdate(req.user._id, {
-
       householdSize,
 
       allergies: allergies || [],
 
-      dietaryRestrictions: dietaryRestrictions || []
-
+      dietaryRestrictions: dietaryRestrictions || [],
     });
 
-    const updatedUser =
-      await User.findById(req.user._id);
+    const updatedUser = await User.findById(req.user._id);
 
     res.render("profile", {
-
       user: updatedUser,
 
-      success: "Profile updated successfully"
-
+      success: "Profile updated successfully",
     });
-
   } catch (err) {
-
     console.error(err);
 
     res.render("profile", {
-
       user: req.user,
 
-      error: "Failed to update profile"
-
+      error: "Failed to update profile",
     });
   }
 });
 
-/* === Static + 404 === */
+/* === 404 catch-all === */
 
 app.use((req, res) => {
   res.status(404);
@@ -1403,3 +1538,11 @@ connectDB()
     console.error("Failed to start server:", err.message);
     process.exit(1);
   });
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err.message);
+  console.error(err.stack);
+});

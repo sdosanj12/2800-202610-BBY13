@@ -1,9 +1,238 @@
 <!DOCTYPE html>
-<html>
-<head><title>Volunteer Dashboard</title></head>
-<body>
-  <h1>Welcome, <%= username %></h1>
-  <p>Volunteer Dashboard — placeholder</p>
-  <a href="/logout">Logout</a>
-</body>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <% 
+      // Safe check: If 'view' is not passed by the server, default to 'dashboard'
+      const currentView = (typeof view !== 'undefined') ? view : 'dashboard'; 
+    %>
+
+    <title><%= currentView === 'inventory' ? 'Inventory' : 'Volunteer Dashboard' %> — Food Bank Tracker</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Lexend+Deca:wght@100..900&display=swap" rel="stylesheet" />
+
+    <% if (currentView === 'inventory') { %>
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+      <link rel="stylesheet" href="/css/inventory.css" />
+    <% } %>
+
+    <link rel="stylesheet" href="/volunteer-dashboard.css" />
+  </head>
+
+  <body>
+    <%- include('partials/navbar') %>
+
+    <div class="dashboard-layout">
+      <aside class="sidebar">
+        <h3 class="sidebar-title">Volunteer Menu</h3>
+
+        <a href="/volunteer/dashboard" class="sidebar-link <%= currentView === 'dashboard' ? 'active' : '' %>">
+          Dashboard
+        </a>
+
+        <a href="/clockin" class="sidebar-link"> Clock In / Out </a>
+
+        <a href="/inventory" class="sidebar-link <%= currentView === 'inventory' ? 'active' : '' %>"> Inventory </a>
+
+        <a href="/schedule" class="sidebar-link"> Schedule </a>
+
+        <a href="/assigned-tasks" class="sidebar-link"> Assigned Tasks </a>
+
+        <a href="/logout" class="sidebar-link logout-link"> Log Out </a>
+      </aside>
+
+      <main class="main-content">
+        
+        <% if (currentView === 'dashboard') { %>
+          <section class="hero-section">
+            <div>
+              <h1 class="welcome-heading">Welcome back, <%= username %></h1>
+              <p class="welcome-sub">Thank you for supporting the community today.</p>
+            </div>
+            <div class="hero-badge">Volunteer Portal</div>
+          </section>
+
+          <section class="stats-row">
+            <div class="stat-card">
+              <p class="stat-card__number"><%= typeof totalHours !== 'undefined' ? totalHours : 0 %></p>
+              <p class="stat-card__label">Total Hours</p>
+            </div>
+
+            <div class="stat-card">
+              <p class="stat-card__number green-text"><%= typeof weeklyHours !== 'undefined' ? weeklyHours : 0 %></p>
+              <p class="stat-card__label">Weekly Hours</p>
+            </div>
+
+            <div class="stat-card">
+              <p class="stat-card__number navy-text"><%= typeof upcomingShifts !== 'undefined' ? upcomingShifts : 0 %></p>
+              <p class="stat-card__label">Upcoming Shifts</p>
+            </div>
+          </section>
+
+          <section class="quick-actions">
+            <div class="section-header">
+              <h2>Quick Actions</h2>
+            </div>
+
+            <div class="actions-grid">
+              <div class="action-card">
+                <h3>Clock In / Out</h3>
+                <p>Track volunteer attendance and hours.</p>
+                <a href="/clockin" class="primary-btn">Open Page</a>
+              </div>
+
+              <div class="action-card">
+                <h3>Inventory</h3>
+                <p>View and update food inventory items.</p>
+                <a href="/inventory" class="primary-btn">View Inventory</a>
+              </div>
+
+              <div class="action-card">
+                <h3>Tasks</h3>
+                <p>Review assigned volunteer tasks.</p>
+                <a href="/assigned-tasks" class="primary-btn">View Tasks</a>
+              </div>
+            </div>
+          </section>
+
+          <section class="recent-activity">
+            <div class="section-header">
+              <h2>Recent Activity</h2>
+            </div>
+
+            <% if (typeof recentActivity !== 'undefined' && recentActivity && recentActivity.length > 0) { %>
+              <% recentActivity.forEach(function(item) { %>
+                <div class="activity-card">
+                  <p><%= item %></p>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="activity-card">
+                <p>No recent activity yet.</p>
+              </div>
+            <% } %>
+          </section>
+
+        <% } else if (currentView === 'inventory') { %>
+          <section class="search-bar-section mb-4">
+            <div class="card p-3 shadow-sm border-0 bg-white">
+                <form class="d-flex gap-2" role="search" action="/inventory/search" method="GET">
+                    <input class="form-control border-2" type="search" name="query" placeholder="Search inventory items..." aria-label="Search" style="border-radius: 8px;" />
+                    <button class="primary-btn" type="submit" style="white-space: nowrap; padding: 10px 24px; border: none; font-weight: 500;">Search</button>
+                </form>
+            </div>
+          </section>
+
+          <% 
+              // Safe fallbacks to prevent breaking if items array isn't populated
+              const secureItems = typeof items !== 'undefined' ? items : [];
+              const inStockItems = secureItems.filter(item => item.quantity > 0);
+              const outOfStockItems = secureItems.filter(item => item.quantity === 0);
+          %>
+
+          <section class="inventory-section mb-5 text-start">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                      <h1 class="welcome-heading fs-2 mb-1">Current Stock Inventory</h1>
+                      <p class="welcome-sub text-muted">Manage, track, and balance current warehouse items.</p>
+                  </div>
+                  <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6" style="font-family: 'Inter', sans-serif;">
+                      <%= inStockItems.length %> Items Available
+                  </span>
+              </div>
+              
+              <div class="card shadow-sm border-0 overflow-hidden bg-white">
+                  <div class="table-responsive">
+                      <table class="table table-hover align-middle mb-0">
+                          <thead class="table-light text-secondary">
+                              <tr style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                  <th scope="col" class="ps-4 py-3">Item Name</th>
+                                  <th scope="col" class="py-3">Quantity</th>
+                                  <th scope="col" class="py-3">Storage Location</th>
+                                  <th scope="col" class="pe-4 py-3">Expiration Date</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              <% if (inStockItems.length === 0) { %>
+                                  <tr>
+                                      <td colspan="4" class="text-center py-4 text-muted">No food items registered in stock right now.</td>
+                                  </tr>
+                              <% } else { %>
+                                  <% inStockItems.forEach(item => { %>
+                                      <tr style="font-family: 'Inter', sans-serif; font-size: 0.95rem;">
+                                          <th scope="row" class="ps-4 fw-semibold text-dark"><%= item.name %></th>
+                                          <td>
+                                              <span class="badge <%= item.quantity < 30 ? 'bg-warning-subtle text-warning-emphasis' : 'bg-light text-dark border' %> px-2.5 py-1.5">
+                                                  <%= item.quantity %> units
+                                              </span>
+                                          </td>
+                                          <td>
+                                              <span class="location-tag"><%= item.storageLocation %></span>
+                                          </td>
+                                          <td class="pe-4 text-secondary">
+                                              <%= new Date(item.expireDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %>
+                                          </td>
+                                      </tr>
+                                  <% }) %>
+                              <% } %>
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </section>
+
+          <section class="out-of-stock-section text-start">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                      <h2 class="fs-4 fw-bold text-danger-emphasis mb-1">Out of Stock Alerts</h2>
+                      <p class="welcome-sub text-muted">Items flagged for urgent distribution restocking requests.</p>
+                  </div>
+                  <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 fs-6" style="font-family: 'Inter', sans-serif;">
+                      <%= outOfStockItems.length %> Shortages
+                  </span>
+              </div>
+
+              <div class="card shadow-sm border-0 overflow-hidden border-start border-danger border-4 bg-white">
+                  <div class="table-responsive">
+                      <table class="table table-hover align-middle mb-0">
+                          <thead class="table-light text-secondary">
+                              <tr style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                                  <th scope="col" class="ps-4 py-3">Item Name</th>
+                                  <th scope="col" class="pe-4 py-3">Assigned Location Bin</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              <% if (outOfStockItems.length === 0) { %>
+                                  <tr>
+                                      <td colspan="2" class="text-center py-4 text-muted">Excellent! All staple stock targets are completely fulfilled.</td>
+                                  </tr>
+                              <% } else { %>
+                                  <% outOfStockItems.forEach(item => { %>
+                                      <tr class="table-danger-row" style="font-family: 'Inter', sans-serif; font-size: 0.95rem;">
+                                          <th scope="row" class="ps-4 text-danger-emphasis"><%= item.name %></th>
+                                          <td class="pe-4">
+                                              <span class="location-tag bg-white border text-dark"><%= item.storageLocation %></span>
+                                          </td>
+                                      </tr>
+                                  <% }) %>
+                              <% } %>
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </section>
+        <% } %>
+
+      </main>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/volunteer-dashboard.js"></script>
+    <% if (currentView === 'inventory') { %>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <% } %>
+  </body>
 </html>
