@@ -1,4 +1,4 @@
-const navbarContainer = document.getElementById('navbar-container');
+const navbarContainer = document.getElementById("navbar-container");
 
 const navbarHTML = `
     <nav class="navbar">
@@ -17,8 +17,8 @@ const navbarHTML = `
 navbarContainer.innerHTML = navbarHTML;
 
 // Keep this part ONLY for the "Active" page (the page the user is currently on)
-document.querySelectorAll('.nav-links a').forEach(link => {
-    if (link.href === window.location.href) {
-        link.style.borderBottomColor = "var(--brand-blue)";
-    }
+document.querySelectorAll(".nav-links a").forEach((link) => {
+  if (link.href === window.location.href) {
+    link.style.borderBottomColor = "var(--brand-blue)";
+  }
 });

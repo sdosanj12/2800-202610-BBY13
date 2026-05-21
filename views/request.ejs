@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Food Request — Food Bank Tracker</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/request.css" />
+  </head>
+  <body>
+    <!-- Navbar — matches client-dashboard.css exactly -->
+    <!-- Note: /request is a public route so username isn't available here. -->
+    <!-- If you move this under /client/request and pass username, add it back. -->
+    <nav class="navbar">
+      <a href="/" class="nav-brand">Food Bank Tracker</a>
+      <ul class="nav-links">
+        <li><a href="/client/dashboard">Dashboard</a></li>
+        <li><a href="/request" class="nav-active">Request</a></li>
+        <li><a href="/logout" class="nav-logout">Logout</a></li>
+      </ul>
+    </nav>
+
+    <main class="page-content">
+      <h1 class="page-heading">Food Request Form</h1>
+      <p class="page-sub">
+        Fill out the details below and we'll prepare your package. Fields marked
+        <span class="required">*</span> are required.
+      </p>
+
+      <div class="form-card">
+        <!-- Banners -->
+        <div id="submit-success" class="submit-success">
+          Your request was submitted! Staff will review it and get back to you
+          soon.
+          <a href="/client/dashboard">Back to dashboard &rarr;</a>
+        </div>
+        <div id="submit-error" class="submit-error"></div>
+
+        <form id="request-form" novalidate>
+          <!-- ── Household ── -->
+          <div class="form-section">
+            <p class="form-section-title">Household Info</p>
+
+            <div class="form-group">
+              <label class="form-label" for="household-size">
+                Household Size <span class="required">*</span>
+              </label>
+              <div class="select-wrapper">
+                <select
+                  class="form-select"
+                  id="household-size"
+                  name="householdSize"
+                >
+                  <option value="">Select size...</option>
+                  <option value="1">1 person</option>
+                  <option value="2">2 people</option>
+                  <option value="3">3 people</option>
+                  <option value="4">4 people</option>
+                  <option value="5">5 people</option>
+                  <option value="6">6 people</option>
+                  <option value="7">7 people</option>
+                  <option value="8">8+ people</option>
+                </select>
+              </div>
+              <p id="err-household" class="form-error">
+                Please select a household size.
+              </p>
+            </div>
+          </div>
+
+          <!-- ── Dietary Needs ── -->
+          <div class="form-section">
+            <p class="form-section-title">Dietary Needs</p>
+
+            <div class="form-group">
+              <label class="form-label">
+                Restrictions
+                <span class="optional">(select all that apply)</span>
+              </label>
+              <div class="checkbox-grid">
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="halal" />
+                  <span>Halal</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="vegan" />
+                  <span>Vegan / Vegetarian</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="gluten-free" />
+                  <span>Gluten-Free</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="dairy-free" />
+                  <span>Dairy-Free</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="nut-free" />
+                  <span>Nut-Free</span>
+                </label>
+                <label class="checkbox-item">
+                  <input type="checkbox" name="diet" value="low-sodium" />
+                  <span>Low Sodium</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Notes ── -->
+          <div class="form-section">
+            <p class="form-section-title">Additional Info</p>
+            <div class="form-group">
+              <label class="form-label" for="notes">
+                Notes for staff
+                <span class="optional">(optional, max 500 characters)</span>
+              </label>
+              <textarea
+                class="form-textarea"
+                id="notes"
+                name="notes"
+                rows="3"
+                maxlength="500"
+                placeholder="Any extra details that might help us prepare your package..."
+              ></textarea>
+              <p
+                style="
+                  text-align: right;
+                  font-size: 0.75rem;
+                  color: #9ca3af;
+                  margin-top: 0.25rem;
+                "
+              >
+                <span id="notes-count">0</span>/500
+              </p>
+            </div>
+          </div>
+
+          <!-- ── Actions ── -->
+          <div class="form-actions">
+            <button type="submit" id="btn-submit" class="btn-submit">
+              Submit Request
+            </button>
+            <button type="button" id="btn-clear" class="btn-clear">
+              Clear
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <span>&copy; 2026 Food Bank Tracker</span>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="/contact">Contact Support</a>
+      </div>
+    </footer>
+
+    <script>
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      /* ── Character counter ── */
+      $("notes").addEventListener("input", function () {
+        $("notes-count").textContent = this.value.length;
+      });
+
+      /* ── Validation ── */
+      function showErr(id, show) {
+        const el = $(id);
+        if (el) el.classList.toggle("visible", show);
+      }
+
+      function validate() {
+        let valid = true;
+        const household = $("household-size").value;
+        showErr("err-household", !household);
+        if (!household) valid = false;
+        return valid;
+      }
+
+      /* ── Form submit — POST /api/requests ── */
+      $("request-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        $("submit-error").classList.remove("visible");
+        $("submit-success").classList.remove("visible");
+
+        if (!validate()) return;
+
+        const dietaryNeeds = [
+          ...document.querySelectorAll('input[name="diet"]:checked'),
+        ].map((cb) => cb.value);
+
+        const payload = {
+          householdSize: parseInt($("household-size").value, 10),
+          dietaryNeeds,
+          notes: $("notes").value.trim(),
+        };
+
+        const btn = $("btn-submit");
+        btn.disabled = true;
+        btn.textContent = "Submitting…";
+
+        try {
+          const res = await fetch("/api/requests", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            $("submit-error").textContent =
+              data.error || "Something went wrong. Please try again.";
+            $("submit-error").classList.add("visible");
+            return;
+          }
+
+          $("submit-success").classList.add("visible");
+          $("request-form").reset();
+          $("notes-count").textContent = "0";
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (err) {
+          $("submit-error").textContent =
+            "Network error. Please check your connection and try again.";
+          $("submit-error").classList.add("visible");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Submit Request";
+        }
+      });
+
+      /* ── Clear button ── */
+      $("btn-clear").addEventListener("click", () => {
+        $("request-form").reset();
+        $("notes-count").textContent = "0";
+        showErr("err-household", false);
+        $("submit-error").classList.remove("visible");
+        $("submit-success").classList.remove("visible");
+      });
+    </script>
+  </body>
+</html>

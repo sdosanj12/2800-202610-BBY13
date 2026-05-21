@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Inventory — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/manage-inventory-admin.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <nav class="topbar">
+    <a href="/admin/dashboard" class="topbar-brand">🥫 Food Bank Tracker</a>
+    <div class="topbar-right">
+      <span class="topbar-user">Admin: <strong><%= username %></strong></span>
+      <a href="/admin/logout" class="btn-shell">Log out</a>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link"><span class="icon">📊</span> Dashboard</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link active"><span class="icon">📦</span> All Items</a>
+        <a href="/admin/audit-log" class="sidebar-link"><span class="icon">📋</span> History &amp; Audit Log</a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link"><span class="icon">⚠️</span> Low Stock Alerts</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link"><span class="icon">👥</span> All Employees</a>
+        <a href="/admin/employees/codes" class="sidebar-link"><span class="icon">🔑</span> Generate Codes</a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= username %></strong>
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="page-header">
+        <div>
+          <h1>Manage Inventory</h1>
+          <div class="sub"><%= new Date().toLocaleDateString('en-CA', {weekday:'long',year:'numeric',month:'long',day:'numeric'}) %></div>
+        </div>
+        <button class="btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add Item</button>
+      </div>
+
+      <% if (success && success.length) { %><div class="flash-success"><%= success[0] %></div><% } %>
+      <% if (error && error.length) { %><div class="flash-error"><%= error[0] %></div><% } %>
+
+      <!-- Stat Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Items</div>
+          <div class="stat-value"><%= stats.total %></div>
+          <div class="stat-sub">Across all categories</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">In Stock</div>
+          <div class="stat-value"><%= stats.inStock %></div>
+          <div class="stat-sub"><%= stats.total > 0 ? Math.round(stats.inStock/stats.total*100) : 0 %>% of inventory</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Low Stock</div>
+          <div class="stat-value"><%= stats.lowStock %></div>
+          <div class="stat-sub">Needs attention</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Out of Stock</div>
+          <div class="stat-value"><%= stats.outOfStock %></div>
+          <div class="stat-sub">Requires restocking</div>
+        </div>
+      </div>
+
+      <!-- Inventory Panel -->
+      <div class="panel">
+        <div class="panel-header"><h2>All Inventory Items</h2></div>
+
+        <!-- Filter Bar -->
+        <form method="GET" action="/admin/inventory">
+          <div class="filter-bar">
+            <input class="filter-input" type="text" name="search" placeholder="Search items…" value="<%= filters.search || '' %>" />
+            <select class="filter-select" name="category">
+              <option value="">All Categories</option>
+              <% ['canned','fresh','dry','frozen','beverages','baby','other'].forEach(cat => { %>
+                <option value="<%= cat %>" <%= filters.category === cat ? 'selected' : '' %>><%= cat.charAt(0).toUpperCase()+cat.slice(1) %></option>
+              <% }) %>
+            </select>
+            <select class="filter-select" name="status">
+              <option value="">All Statuses</option>
+              <option value="in-stock"     <%= filters.status === 'in-stock'     ? 'selected' : '' %>>In Stock</option>
+              <option value="low-stock"    <%= filters.status === 'low-stock'    ? 'selected' : '' %>>Low Stock</option>
+              <option value="out-of-stock" <%= filters.status === 'out-of-stock' ? 'selected' : '' %>>Out of Stock</option>
+              <option value="expired"      <%= filters.status === 'expired'      ? 'selected' : '' %>>Expired</option>
+            </select>
+            <select class="filter-select" name="location">
+              <option value="">All Locations</option>
+              <% ['shelf','fridge','freezer','pantry'].forEach(loc => { %>
+                <option value="<%= loc %>" <%= filters.location === loc ? 'selected' : '' %>><%= loc.charAt(0).toUpperCase()+loc.slice(1) %></option>
+              <% }) %>
+            </select>
+            <button type="submit" class="btn-filter">Filter</button>
+            <a href="/admin/inventory" class="btn-clear">Clear</a>
+          </div>
+        </form>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Unit</th>
+                <th>Location</th>
+                <th>Expiry</th>
+                <th>Status</th>
+                <th>Added By</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if (items.length === 0) { %>
+                <tr><td colspan="9" class="empty-state">No items match your filters.</td></tr>
+              <% } else { %>
+                <% items.forEach(item => {
+                  const badgeMap = {'in-stock':'badge-in-stock','low-stock':'badge-low-stock','out-of-stock':'badge-out-stock','expired':'badge-expired'};
+                %>
+                  <tr>
+                    <td style="font-weight:600;"><%= item.name %></td>
+                    <td><%= item.category.charAt(0).toUpperCase()+item.category.slice(1) %></td>
+                    <td><%= item.quantity %></td>
+                    <td class="muted"><%= item.unit %></td>
+                    <td><%= item.storageLocation || '—' %></td>
+                    <td class="muted"><%= item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '—' %></td>
+                    <td>
+                      <span class="badge <%= badgeMap[item.status] || '' %>">
+                        <%= item.status.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) %>
+                      </span>
+                    </td>
+                    <td class="muted" style="font-size:0.8rem;"><%= item.addedBy ? item.addedBy.username : '—' %></td>
+                    <td class="text-end">
+                      <button class="btn-row" style="margin-right:0.25rem;"
+                          onclick="openEdit('<%= item._id %>','<%= item.name %>','<%= item.category %>',<%= item.quantity %>,'<%= item.unit %>','<%= item.storageLocation || 'shelf' %>','<%= item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '' %>','<%= (item.notes||'').replace(/'/g,"\\'") %>')">
+                        Edit
+                      </button>
+                      <button class="btn-row btn-row-danger" onclick="openDelete('<%= item._id %>','<%= item.name %>')">Delete</button>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-footer">
+          <small>Showing <%= items.length %> of <%= stats.total %> items</small>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ADD ITEM MODAL -->
+  <div class="modal-overlay" id="addModal">
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('addModal').classList.remove('open')">✕</button>
+      <h2>Add Inventory Item</h2>
+      <form method="POST" action="/admin/inventory">
+        <div class="form-grid">
+          <div>
+            <label class="f-label">Item Name <span style="color:var(--color-error)">*</span></label>
+            <input class="f-input" type="text" name="name" placeholder="e.g. Canned Beans" required />
+          </div>
+          <div>
+            <label class="f-label">Category <span style="color:var(--color-error)">*</span></label>
+            <select class="f-select" name="category" required>
+              <option value="">Select category…</option>
+              <% ['canned','fresh','dry','frozen','beverages','baby','other'].forEach(cat => { %>
+                <option value="<%= cat %>"><%= cat.charAt(0).toUpperCase()+cat.slice(1) %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Quantity <span style="color:var(--color-error)">*</span></label>
+            <input class="f-input" type="number" name="quantity" min="0" placeholder="0" required />
+          </div>
+          <div>
+            <label class="f-label">Unit <span style="color:var(--color-error)">*</span></label>
+            <select class="f-select" name="unit" required>
+              <option value="">Unit…</option>
+              <% ['cans','bags','boxes','units','kg','lbs','liters'].forEach(u => { %>
+                <option value="<%= u %>"><%= u %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Storage Location</label>
+            <select class="f-select" name="storageLocation">
+              <% ['shelf','fridge','freezer','pantry'].forEach(loc => { %>
+                <option value="<%= loc %>"><%= loc.charAt(0).toUpperCase()+loc.slice(1) %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Expiry Date</label>
+            <input class="f-input" type="date" name="expiryDate" />
+          </div>
+          <div class="full">
+            <label class="f-label">Notes</label>
+            <textarea class="f-textarea" rows="2" name="notes" placeholder="Optional notes…"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer-row">
+          <button type="button" class="btn-outline" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn-primary">Add Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- EDIT ITEM MODAL -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('editModal').classList.remove('open')">✕</button>
+      <h2>Edit Item</h2>
+      <form id="editForm" method="POST" action="">
+        <input type="hidden" name="_method" value="PATCH" />
+        <div class="form-grid">
+          <div>
+            <label class="f-label">Item Name</label>
+            <input class="f-input" type="text" id="editName" name="name" />
+          </div>
+          <div>
+            <label class="f-label">Category</label>
+            <select class="f-select" id="editCategory" name="category">
+              <% ['canned','fresh','dry','frozen','beverages','baby','other'].forEach(cat => { %>
+                <option value="<%= cat %>"><%= cat.charAt(0).toUpperCase()+cat.slice(1) %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Quantity</label>
+            <input class="f-input" type="number" id="editQty" name="quantity" min="0" />
+          </div>
+          <div>
+            <label class="f-label">Unit</label>
+            <select class="f-select" id="editUnit" name="unit">
+              <% ['cans','bags','boxes','units','kg','lbs','liters'].forEach(u => { %>
+                <option value="<%= u %>"><%= u %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Storage Location</label>
+            <select class="f-select" id="editLocation" name="storageLocation">
+              <% ['shelf','fridge','freezer','pantry'].forEach(loc => { %>
+                <option value="<%= loc %>"><%= loc.charAt(0).toUpperCase()+loc.slice(1) %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div>
+            <label class="f-label">Expiry Date</label>
+            <input class="f-input" type="date" id="editExpiry" name="expiryDate" />
+          </div>
+          <div class="full">
+            <label class="f-label">Notes</label>
+            <textarea class="f-textarea" rows="2" id="editNotes" name="notes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer-row">
+          <button type="button" class="btn-outline" onclick="document.getElementById('editModal').classList.remove('open')">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRM MODAL -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="document.getElementById('deleteModal').classList.remove('open')">✕</button>
+      <div class="delete-center">
+        <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="#dc2626">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        <h6>Delete <span id="deleteItemName"></span>?</h6>
+        <p>This action cannot be undone.</p>
+        <form id="deleteForm" method="POST" action="">
+          <input type="hidden" name="_method" value="DELETE" />
+          <div style="display:flex;gap:0.75rem;justify-content:center;">
+            <button type="button" class="btn-outline" onclick="document.getElementById('deleteModal').classList.remove('open')">Cancel</button>
+            <button type="submit" class="btn-primary" style="background:#dc2626;border-color:#dc2626;">Delete</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <span>© 2026 Food Bank Tracker</span>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+
+  <script>
+    // Close modals on backdrop click
+    document.querySelectorAll('.modal-overlay').forEach(o => {
+      o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+    });
+
+    function openEdit(id, name, category, qty, unit, location, expiry, notes) {
+      document.getElementById('editForm').action = '/admin/inventory/' + id;
+      document.getElementById('editName').value     = name;
+      document.getElementById('editCategory').value = category;
+      document.getElementById('editQty').value      = qty;
+      document.getElementById('editUnit').value     = unit;
+      document.getElementById('editLocation').value = location;
+      document.getElementById('editExpiry').value   = expiry;
+      document.getElementById('editNotes').value    = notes;
+      document.getElementById('editModal').classList.add('open');
+    }
+
+    function openDelete(id, name) {
+      document.getElementById('deleteForm').action = '/admin/inventory/' + id;
+      document.getElementById('deleteItemName').textContent = name;
+      document.getElementById('deleteModal').classList.add('open');
+    }
+  </script>
+</body>

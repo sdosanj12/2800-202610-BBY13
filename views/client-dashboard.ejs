@@ -1,34 +1,353 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Client Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-stone-50 min-h-screen px-4 py-10">
-  <div class="max-w-2xl mx-auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard — Food Bank Tracker</title>
 
-    <div id="submitted-banner" class="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6 hidden">
-      <p class="text-emerald-800 font-medium">Your food request has been submitted! Staff will review it soon.</p>
-    </div>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/client-dashboard.css" />
+  </head>
+  <body>
+    <!-- Navbar  -->
+    <%- include('partials/navbar') %>
 
-    <h1 class="text-2xl font-bold text-slate-900 mb-2">Welcome, <%= username %></h1>
-    <p class="text-slate-600 mb-8">Client Dashboard</p>
+    <!-- Main -->
+    <main class="page-content">
+      <!-- Welcome -->
+      <h1 class="welcome-heading">Welcome back, <%= username %></h1>
+      <p class="welcome-sub">
+        Here's a summary of your requests and notifications.
+      </p>
 
-    <a href="/client/ai-request" class="inline-block bg-blue-600 hover:bg-blue-700 text-white rounded-full py-3 px-6 font-medium transition-colors">
-      Try our new Smart Request Assistant
-    </a>
+      <!-- Submission success banner -->
+      <div id="submitted-banner" class="banner banner--success">
+        Your food request was submitted! Staff will review it soon.
+      </div>
 
-    <div class="mt-6">
-      <a href="/logout" class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Logout</a>
-    </div>
-  </div>
+      <!-- Quick Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <p class="stat-card__number" id="stat-total">—</p>
+          <p class="stat-card__label">Total Requests</p>
+        </div>
+        <div class="stat-card">
+          <p
+            class="stat-card__number stat-card__number--pending"
+            id="stat-pending"
+          >
+            —
+          </p>
+          <p class="stat-card__label">Pending</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-card__number stat-card__number--navy" id="stat-unread">
+            —
+          </p>
+          <p class="stat-card__label">Unread Alerts</p>
+        </div>
+      </div>
 
-  <script>
-    if (new URLSearchParams(window.location.search).get('submitted') === '1') {
-      document.getElementById('submitted-banner').classList.remove('hidden');
-    }
-  </script>
-</body>
+      <!-- Smart Request CTA -->
+      <div class="cta-banner">
+        <div class="cta-banner__text">
+          <p class="cta-banner__title">Try the Smart Request Assistant</p>
+          <p class="cta-banner__sub">
+            Describe your household in plain English — AI fills the form for
+            you.
+          </p>
+        </div>
+        <a href="/request" class="cta-banner__btn">Get started &rarr;</a>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="history">My Requests</button>
+        <button class="tab-btn" data-tab="notifications">
+          Notifications
+          <span id="notif-badge" class="notif-badge"></span>
+        </button>
+      </div>
+
+      <!-- TAB: Request History -->
+      <div id="tab-history" class="tab-panel active fade-in">
+        <p id="history-loading" class="loading-msg pulse-loading">
+          Loading your requests...
+        </p>
+        <div id="history-empty" class="state-msg" style="display: none">
+          <p>You haven't made any requests yet.</p>
+          <a href="/request" class="state-msg__link"
+            >Make your first request &rarr;</a
+          >
+        </div>
+        <div id="history-list" class="request-list" style="display: none"></div>
+      </div>
+
+      <!-- TAB: Notifications -->
+      <div id="tab-notifications" class="tab-panel">
+        <div class="notif-header-row">
+          <p>Your recent alerts from staff.</p>
+          <button id="btn-mark-all-read" class="mark-all-btn">
+            Mark all as read
+          </button>
+        </div>
+        <p id="notif-loading" class="loading-msg pulse-loading">
+          Loading notifications...
+        </p>
+        <div id="notif-empty" class="state-msg" style="display: none">
+          <p>No notifications yet.</p>
+        </div>
+        <div id="notif-list" class="notif-list" style="display: none"></div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <%- include('partials/footer') %>
+
+    <script>
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      function formatDate(iso) {
+        if (!iso) return "—";
+        return new Date(iso).toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      /* ── Tabs ── */
+      function switchTab(name) {
+        document.querySelectorAll(".tab-btn").forEach((b) => {
+          b.classList.toggle("active", b.dataset.tab === name);
+        });
+        document.querySelectorAll(".tab-panel").forEach((p) => {
+          p.classList.remove("active", "fade-in");
+        });
+        const panel = $("tab-" + name);
+        panel.classList.add("active");
+        void panel.offsetWidth;
+        panel.classList.add("fade-in");
+      }
+
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+      });
+
+      /* ── Submission banner ── */
+      if (
+        new URLSearchParams(window.location.search).get("submitted") === "1"
+      ) {
+        $("submitted-banner").classList.add("visible");
+        history.replaceState(null, "", "/client/dashboard");
+      }
+
+      /* ── Request history ── */
+      async function loadHistory() {
+        try {
+          const res = await fetch("/api/requests/me", {
+            credentials: "include",
+          });
+          const data = await res.json();
+          $("history-loading").style.display = "none";
+
+          const requests = data.requests || [];
+          $("stat-total").textContent = requests.length;
+          $("stat-pending").textContent = requests.filter(
+            (r) => r.status === "pending",
+          ).length;
+
+          if (requests.length === 0) {
+            $("history-empty").style.display = "block";
+            return;
+          }
+
+          const list = $("history-list");
+          list.style.display = "flex";
+          list.innerHTML = "";
+
+          requests.forEach((r) => {
+            const dietary = (r.dietaryNeeds || []).join(", ") || "None listed";
+            const status = r.status || "pending";
+            const statusLabel =
+              status.charAt(0).toUpperCase() + status.slice(1);
+            const pickup = r.pickupDate
+              ? `<p class="request-card__detail">Pickup: ${formatDate(r.pickupDate)}${r.pickupTime ? " at " + r.pickupTime : ""}</p>`
+              : "";
+
+            list.insertAdjacentHTML(
+              "beforeend",
+              `
+            <div class="request-card">
+              <div class="request-card__body">
+                <p class="request-card__title">Household of ${r.householdSize}</p>
+                <p class="request-card__detail">Dietary: ${dietary}</p>
+                ${r.notes ? `<p class="request-card__detail">${r.notes}</p>` : ""}
+                ${pickup}
+                <p class="request-card__date">Submitted ${formatDate(r.createdAt)}</p>
+              </div>
+              <span class="badge badge--${status}">${statusLabel}</span>
+            </div>
+          `,
+            );
+          });
+        } catch (err) {
+          const el = $("history-loading");
+          el.textContent = "Failed to load requests.";
+          el.classList.remove("pulse-loading");
+        }
+      }
+
+      /* ── Notifications ── */
+      async function loadNotifications() {
+        try {
+          const res = await fetch("/api/notifications", {
+            credentials: "include",
+          });
+          const data = await res.json();
+          $("notif-loading").style.display = "none";
+
+          const notifs = data.notifications || [];
+          const unread = data.unreadCount || 0;
+
+          $("stat-unread").textContent = unread;
+          if (unread > 0) {
+            $("notif-badge").textContent = unread;
+            $("notif-badge").classList.add("visible");
+            $("btn-mark-all-read").classList.add("visible");
+          }
+
+          if (notifs.length === 0) {
+            $("notif-empty").style.display = "block";
+            return;
+          }
+
+          const list = $("notif-list");
+          list.style.display = "flex";
+          list.innerHTML = "";
+
+          notifs.forEach((n) => {
+            const isApproved = n.type === "request-approved";
+            const isDenied = n.type === "request-denied";
+
+            const cardMod = n.read
+              ? ""
+              : isApproved
+                ? "notif-card--unread-approved"
+                : isDenied
+                  ? "notif-card--unread-denied"
+                  : "notif-card--unread-default";
+
+            const labelMod = isApproved
+              ? "notif-card__label--approved"
+              : isDenied
+                ? "notif-card__label--denied"
+                : "notif-card__label--default";
+
+            const labelText = isApproved
+              ? "Approved"
+              : isDenied
+                ? "Denied"
+                : "Notice";
+
+            list.insertAdjacentHTML(
+              "beforeend",
+              `
+            <div id="notif-${n._id}" class="notif-card ${cardMod}">
+              <div class="notif-card__body">
+                <p class="notif-card__label ${labelMod}">${labelText}</p>
+                <p class="notif-card__message ${n.read ? "" : "notif-card__message--unread"}">${n.message}</p>
+                <p class="notif-card__date">${formatDate(n.createdAt)}</p>
+              </div>
+              <div class="notif-card__actions">
+                ${
+                  !n.read
+                    ? `<button class="notif-action-btn" onclick="markRead('${n._id}')">Mark read</button>`
+                    : ""
+                }
+                <button class="notif-dismiss-btn" onclick="dismissNotif('${n._id}')" title="Dismiss">&times;</button>
+              </div>
+            </div>
+          `,
+            );
+          });
+        } catch (err) {
+          const el = $("notif-loading");
+          el.textContent = "Failed to load notifications.";
+          el.classList.remove("pulse-loading");
+        }
+      }
+
+      async function markRead(id) {
+        await fetch(`/api/notifications/${id}/read`, {
+          method: "PATCH",
+          credentials: "include",
+        });
+        const el = $("notif-" + id);
+        if (el) {
+          el.classList.remove(
+            "notif-card--unread-approved",
+            "notif-card--unread-denied",
+            "notif-card--unread-default",
+          );
+          const btn = el.querySelector(".notif-action-btn");
+          if (btn) btn.remove();
+          const msg = el.querySelector(".notif-card__message--unread");
+          if (msg) msg.classList.remove("notif-card__message--unread");
+        }
+        const badge = $("notif-badge");
+        const cur = parseInt(badge.textContent || "0", 10) - 1;
+        if (cur <= 0) {
+          badge.classList.remove("visible");
+          $("btn-mark-all-read").classList.remove("visible");
+          $("stat-unread").textContent = "0";
+        } else {
+          badge.textContent = cur;
+          $("stat-unread").textContent = cur;
+        }
+      }
+
+      async function dismissNotif(id) {
+        await fetch(`/api/notifications/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const el = $("notif-" + id);
+        if (el) el.remove();
+        if (!$("notif-list").children.length) {
+          $("notif-list").style.display = "none";
+          $("notif-empty").style.display = "block";
+        }
+      }
+
+      $("btn-mark-all-read").addEventListener("click", async () => {
+        await fetch("/api/notifications/read-all", {
+          method: "PATCH",
+          credentials: "include",
+        });
+        document.querySelectorAll(".notif-card").forEach((el) => {
+          el.classList.remove(
+            "notif-card--unread-approved",
+            "notif-card--unread-denied",
+            "notif-card--unread-default",
+          );
+          const btn = el.querySelector(".notif-action-btn");
+          if (btn) btn.remove();
+          const msg = el.querySelector(".notif-card__message--unread");
+          if (msg) msg.classList.remove("notif-card__message--unread");
+        });
+        $("notif-badge").classList.remove("visible");
+        $("btn-mark-all-read").classList.remove("visible");
+        $("stat-unread").textContent = "0";
+      });
+
+      loadHistory();
+      loadNotifications();
+    </script>
+  </body>
 </html>
