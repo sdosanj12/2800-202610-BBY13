@@ -34,11 +34,11 @@
 
         <a href="/clockin" class="sidebar-link"> Clock In / Out </a>
 
-        <a href="#" class="sidebar-link <%= currentView === 'inventory' ? 'active' : '' %>"> Inventory </a>
+        <a href="/inventory" class="sidebar-link <%= currentView === 'inventory' ? 'active' : '' %>"> Inventory </a>
 
-        <a href="#" class="sidebar-link"> Schedule </a>
+        <a href="/schedule" class="sidebar-link"> Schedule </a>
 
-        <a href="#" class="sidebar-link"> Assigned Tasks </a>
+        <a href="/assigned-tasks" class="sidebar-link"> Assigned Tasks </a>
 
         <a href="/logout" class="sidebar-link logout-link"> Log Out </a>
       </aside>
@@ -86,13 +86,13 @@
               <div class="action-card">
                 <h3>Inventory</h3>
                 <p>View and update food inventory items.</p>
-                <a href="#" class="primary-btn">View Inventory</a>
+                <a href="/inventory" class="primary-btn">View Inventory</a>
               </div>
 
               <div class="action-card">
                 <h3>Tasks</h3>
                 <p>Review assigned volunteer tasks.</p>
-                <a href="#" class="primary-btn">View Tasks</a>
+                <a href="/assigned-tasks" class="primary-btn">View Tasks</a>
               </div>
             </div>
           </section>
