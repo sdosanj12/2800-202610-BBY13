@@ -1,3 +1,11 @@
+/**
+ * Notification model — User-facing notifications for request status changes,
+ * pickup reminders, and low-stock alerts. Supports read/unread state and
+ * multi-language messages via the language and originalMessage fields.
+ *
+ * @author Brian Lau
+ */
+
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema(
@@ -42,6 +50,7 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/** Compound index for efficient notification queries (user + read status + date). */
 notificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

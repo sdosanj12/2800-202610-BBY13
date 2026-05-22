@@ -1,3 +1,26 @@
+/**
+ * server.js — Main application entry point for Food Bank Tracker.
+ *
+ * Sets up Express, connects to MongoDB, registers middleware, defines all
+ * routes (public pages, auth, client, volunteer, admin, APIs), and starts
+ * the HTTP server.
+ *
+ * @author Brian Lau
+ * @author Yen Yi Huang
+ * @author Supreet Dosanj
+ * @author Evan Tang
+ * @author Shirin Sajeeb
+ * 
+ * Ai Assistants:
+ * @author Claude Opus 4.7
+ * @author Chatgpt
+ * @author Gemini
+ */
+
+/* ============================================================
+ *  1. IMPORTS
+ * ============================================================ */
+
 require("./utils.js");
 require("dotenv").config();
 const express = require("express");
@@ -12,6 +35,7 @@ const methodOverride = require("method-override");
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Database connection and Mongoose models
 const { connectDB } = require("./databaseConnection");
 const User = require("./models/User");
 const Employee = require("./models/Employee");
@@ -21,9 +45,15 @@ const Notification = require("./models/Notification");
 const ShiftLog = require("./models/Shift");
 const AuditLog = require("./models/AuditLog");
 
+// Auth middleware for profile routes
 const protect = require("./middleware/auth");
 
+// Google Gemini AI client (used by the Smart Request Assistant)
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY);
+
+/* ============================================================
+ *  2. APP CONFIGURATION
+ * ============================================================ */
 
 const app = express();
 
@@ -38,20 +68,30 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// CSP is disabled because the demo uses Tailwind CDN and inline scripts in EJS templates.
+// CSP is disabled because the app uses CDN scripts and inline scripts in EJS templates.
 // For production, define an explicit CSP policy that whitelists only required sources.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// Sanitize MongoDB query operators from user input to prevent NoSQL injection
 app.use(mongoSanitizer({ replaceWith: "_" }));
 app.use(express.static(__dirname + "/public"));
 app.use("/images", express.static(__dirname + "/images"));
 app.use(methodOverride("_method"));
 
-/* === Rate limiting === */
+/* ============================================================
+ *  3. RATE LIMITING
+ *  Protects AI endpoints from abuse and excessive Gemini API usage.
+ *  @author Brian Lau
+ * ============================================================ */
 
+/**
+ * Rate limiter for the AI parse-request endpoint.
+ * Limits each user to 10 AI calls per hour to protect the free Gemini quota.
+ * Falls back to IP-based limiting for unauthenticated requests.
+ */
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 AI calls per hour per user (protects free Gemini quota)
+  max: 10, // 10 AI calls per hour per user
   message: {
     error:
       "AI assistant temporarily unavailable due to high usage. Please try again later or fill out the form manually.",
@@ -59,15 +99,26 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Rate limit by authenticated user if logged in, fall back to IP
     return req.user?.userId || req.ip;
   },
 });
 
 app.use("/api/ai/parse-request", aiLimiter);
 
-/* === Auth helpers === */
+/* ============================================================
+ *  4. AUTHENTICATION HELPERS
+ *  JWT token generation and verification for both client users
+ *  and admin employees. Two separate auth systems:
+ *    - Client/Volunteer: `token` cookie  → sessionValidation
+ *    - Admin Employee:   `admin_token` cookie → adminSessionValidation
+ *  @author Brian Lau
+ * ============================================================ */
 
+/**
+ * Generates a JWT for a regular user (client or volunteer).
+ * @param {Object} user - Mongoose User document
+ * @returns {string} Signed JWT token
+ */
 function generateToken(user) {
   return jwt.sign(
     {
@@ -80,6 +131,11 @@ function generateToken(user) {
   );
 }
 
+/**
+ * Extracts and verifies a user JWT from the Authorization header or cookie.
+ * @param {Object} req - Express request object
+ * @returns {Object|null} Decoded token payload or null if invalid/missing
+ */
 function verifyToken(req) {
   const authHeader = req.headers.authorization;
   let token = null;
@@ -100,6 +156,11 @@ function verifyToken(req) {
   }
 }
 
+/**
+ * Checks if the request has a valid user session and attaches decoded user to req.
+ * @param {Object} req - Express request object
+ * @returns {boolean} True if session is valid
+ */
 function isValidSession(req) {
   const decoded = verifyToken(req);
   if (decoded) {
@@ -109,6 +170,9 @@ function isValidSession(req) {
   return false;
 }
 
+/**
+ * Express middleware — redirects to /login if user JWT is invalid or missing.
+ */
 function sessionValidation(req, res, next) {
   if (isValidSession(req)) {
     next();
@@ -117,6 +181,11 @@ function sessionValidation(req, res, next) {
   }
 }
 
+/**
+ * Checks if the authenticated user has volunteer or admin role.
+ * @param {Object} req - Express request object (must have req.user set)
+ * @returns {boolean}
+ */
 function isVolunteerOrAdmin(req) {
   return (
     req.user &&
@@ -125,6 +194,9 @@ function isVolunteerOrAdmin(req) {
   );
 }
 
+/**
+ * Express middleware — returns 403 if user is not a volunteer or admin.
+ */
 function volunteerOrAdminAuthorization(req, res, next) {
   if (!isVolunteerOrAdmin(req)) {
     res.status(403);
@@ -134,6 +206,12 @@ function volunteerOrAdminAuthorization(req, res, next) {
   next();
 }
 
+/**
+ * Generates a JWT for an admin/employee user.
+ * Uses a separate secret from the client JWT so tokens are not interchangeable.
+ * @param {Object} employee - Mongoose Employee document
+ * @returns {string} Signed admin JWT token
+ */
 function generateAdminToken(employee) {
   return jwt.sign(
     {
@@ -148,6 +226,11 @@ function generateAdminToken(employee) {
   );
 }
 
+/**
+ * Extracts and verifies an admin JWT from the admin_token cookie.
+ * @param {Object} req - Express request object
+ * @returns {Object|null} Decoded token payload or null if invalid/missing
+ */
 function verifyAdminToken(req) {
   const token = req.cookies && req.cookies.admin_token;
   if (!token) return null;
@@ -158,6 +241,10 @@ function verifyAdminToken(req) {
   }
 }
 
+/**
+ * Express middleware — redirects to /admin/login if admin JWT is invalid.
+ * Attaches decoded employee data to req.employee on success.
+ */
 function adminSessionValidation(req, res, next) {
   const decoded = verifyAdminToken(req);
   if (decoded && decoded.type === "employee") {
@@ -168,10 +255,18 @@ function adminSessionValidation(req, res, next) {
   }
 }
 
+/**
+ * Checks if the request was made by an authenticated admin employee.
+ * @param {Object} req - Express request object
+ * @returns {boolean}
+ */
 function isAdmin(req) {
   return req.employee && req.employee.type === "employee";
 }
 
+/**
+ * Express middleware — returns 403 if request is not from an admin employee.
+ */
 function adminAuthorization(req, res, next) {
   if (!isAdmin(req)) {
     res.status(403);
@@ -181,8 +276,20 @@ function adminAuthorization(req, res, next) {
   next();
 }
 
-/* === Translation helper === */
+/* ============================================================
+ *  5. TRANSLATION HELPER
+ *  Uses Gemini AI to translate notification text for non-English users.
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
+/**
+ * Translates text to the target language using Google Gemini.
+ * Returns the original text if targetLanguage is "en" or translation fails.
+ * @param {string} text - The English text to translate
+ * @param {string} targetLanguage - ISO language code (e.g. "fr", "zh", "pa")
+ * @returns {Promise<string>} Translated text or original on failure
+ */
 async function translateText(text, targetLanguage) {
   if (!targetLanguage || targetLanguage === "en") return text;
   try {
@@ -200,9 +307,15 @@ async function translateText(text, targetLanguage) {
   }
 }
 
-/* === Global view locals middleware ===
+/* ============================================================
+ *  6. GLOBAL MIDDLEWARE
+ * ============================================================ */
+
+/**
  * Injects the decoded JWT user (if any) into res.locals so every EJS view
  * can reference `locals.user` — the navbar partial depends on this.
+ * Also exposes `currentPath` for active-nav highlighting.
+ * @author Brian Lau
  */
 app.use((req, res, next) => {
   const decoded = verifyToken(req);
@@ -213,8 +326,16 @@ app.use((req, res, next) => {
   next();
 });
 
-/* === Public routes === */
+/* ============================================================
+ *  7. PUBLIC PAGE ROUTES
+ *  Pages accessible without authentication.
+ *  @author Brian Lau
+ *  @author Evan Tang
+ * ============================================================ */
 
+/**
+ * GET / — Landing page (index) for guests, welcome page (home) for logged-in users.
+ */
 app.get("/", (req, res) => {
   if (isValidSession(req)) {
     const role = req.user.roles.includes("volunteer")
@@ -227,7 +348,7 @@ app.get("/", (req, res) => {
   res.render("index");
 });
 
-// food request ejs page
+/** GET /request — Food request form page */
 app.get("/request", (req, res) => {
   res.render("request");
 });
@@ -241,12 +362,24 @@ app.get("/contact", (req, res) => {
   res.render("contact", { missing: missingEmail });
 });
 
-/* === Auth routes === */
+/* ============================================================
+ *  8. AUTH ROUTES (Signup, Login, Logout)
+ *  Handles user registration, login with bcrypt password comparison,
+ *  and logout by clearing the JWT cookie.
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ *  @author Supreet Dosanj
+ * ============================================================ */
 
 app.get("/signup", (req, res) => {
   res.render("signup", { error: null });
 });
 
+/**
+ * POST /submitUser — Registers a new user account.
+ * Validates input with Joi, hashes password with bcrypt, creates a User
+ * document, issues a JWT cookie, and redirects to onboarding.
+ */
 app.post("/submitUser", async (req, res) => {
   const { username, email, password } = req.body;
   const user_type = req.body.user_type || "client";
@@ -300,6 +433,10 @@ app.get("/login", (req, res) => {
   res.render("login", { error: null });
 });
 
+/**
+ * POST /login — Authenticates a user with username and password.
+ * On success, issues a JWT cookie and redirects to the appropriate dashboard.
+ */
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -340,6 +477,10 @@ app.post("/login", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/auth/login — JSON API login endpoint (returns token in response body).
+ * Used by API clients / Postman testing.
+ */
 app.post("/api/auth/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -369,6 +510,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+/** GET /logout — Clears the user JWT cookie and shows the logged-out page. */
 app.get("/logout", (req, res) => {
   res.clearCookie("token");
   res.render("loggedout");
@@ -398,21 +540,27 @@ app.get("/onboarding", sessionValidation, async (req, res) => {
   }
 });
 
-// This looks at the food request form submission
+/**
+ * POST /submit-request — Legacy food request form submission.
+ * Generates a random reference ID and renders the confirmation page.
+ * @author Evan Tang
+ */
 app.post("/submit-request", (req, res) => {
-  // 1. Capture the data (optional)
   const formData = req.body;
-
-  // 2. Create your reference ID
   const ref = "FB-" + Math.floor(Math.random() * 100000);
-
-  // 3. THE TRIGGER: Send the confirmation page back to the browser
   res.render("confirmation", { referenceId: ref });
 });
 
-/* === Protected routes === */
+/* ============================================================
+ *  9. CLIENT ROUTES (Protected)
+ *  All /client/* routes require a valid user JWT.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ * ============================================================ */
 
 app.use("/client", sessionValidation);
+
+/** GET /client/dashboard — Client dashboard with request history and notifications. */
 app.get("/client/dashboard", (req, res) => {
   res.render("client-dashboard", {
     username: req.user.username,
@@ -420,11 +568,17 @@ app.get("/client/dashboard", (req, res) => {
     currentPath: "/client/dashboard",
   });
 });
+/** GET /client/ai-request — AI-powered Smart Request Assistant page. */
 app.get("/client/ai-request", (req, res) => {
   res.render("ai-request");
 });
 
-/* === Volunteer routes === */
+/* ============================================================
+ *  10. VOLUNTEER ROUTES (Protected)
+ *  Requires valid user JWT + volunteer or admin role.
+ *  @author Yen Yi Huang
+ *  @author Brian Lau
+ * ============================================================ */
 
 app.use("/volunteer", sessionValidation, volunteerOrAdminAuthorization);
 app.get("/volunteer/dashboard", (req, res) => {
@@ -452,13 +606,16 @@ app.get("/clockin", sessionValidation, volunteerOrAdminAuthorization, (req, res)
   });
 });
 
-/* === Admin routes ===
- * Public: /admin/login, /admin/logout (no adminSessionValidation)
- * Protected: all others use adminSessionValidation inline
- * [CHANGED] Removed app.use("/admin", adminSessionValidation) — caused route
- * conflicts by stripping the /admin prefix. Middleware now applied per-route.
- */
+/* ============================================================
+ *  11. ADMIN PAGE ROUTES
+ *  Employee panel: login/logout are public; all other admin pages
+ *  require adminSessionValidation applied per-route.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ *  @author Claude Opus 4.7
+ * ============================================================ */
 
+/** GET /admin/login — Admin login page (redirects to dashboard if already logged in). */
 app.get("/admin/login", (req, res) => {
   const decoded = verifyAdminToken(req);
   if (decoded && decoded.type === "employee") {
@@ -467,6 +624,10 @@ app.get("/admin/login", (req, res) => {
   res.render("admin-login", { error: null, prefill: "" });
 });
 
+/**
+ * POST /admin/login — Authenticates an employee with Employee ID and PIN.
+ * Validates format with Joi, verifies PIN with bcrypt, issues admin_token cookie.
+ */
 app.post("/admin/login", async (req, res) => {
   const { employeeId, pin } = req.body;
 
@@ -522,7 +683,12 @@ app.get("/admin/logout", (req, res) => {
   res.redirect("/admin/login");
 });
 
-// [CHANGED] Dashboard — active sidebar item is "Dashboard"
+/**
+ * GET /admin/dashboard — Admin overview page with stats for inventory,
+ * pending requests, client count, and employee count.
+ * @author Brian Lau
+ * @author Claude Opus 4.6
+ */
 app.get("/admin/dashboard", adminSessionValidation, async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.employee.employeeId });
@@ -567,7 +733,7 @@ app.get("/admin/dashboard", adminSessionValidation, async (req, res) => {
   }
 });
 
-// [ADDED] GET /admin/employees — All Employees page
+/** GET /admin/employees — Lists all employee records. */
 app.get("/admin/employees", adminSessionValidation, async (req, res) => {
   try {
     const employees = await Employee.find().sort({ createdAt: -1 });
@@ -578,14 +744,17 @@ app.get("/admin/employees", adminSessionValidation, async (req, res) => {
   }
 });
 
-// [ADDED] GET /admin/employees/codes — Add Employee form
+/** GET /admin/employees/codes — Employee registration form page. */
 app.get("/admin/employees/codes", adminSessionValidation, (req, res) => {
   res.render("admin-generate-codes", { employee: req.employee });
 });
 
-// [CHANGED] POST /admin/employees/generate-code — creates a full employee record
-// Previously generated a nameless "Pending" employee with a random PIN.
-// Now accepts name, email, role, department, and PIN from the form.
+/**
+ * POST /admin/employees/generate-code — Creates a new employee record.
+ * Accepts name, email, role, department, and PIN from the form.
+ * Returns the generated Employee ID so the admin can share it.
+ * @author Brian Lau
+ */
 app.post("/admin/employees/generate-code", adminSessionValidation, async (req, res) => {
   try {
     const { name, email, role, department, pin } = req.body;
@@ -626,7 +795,7 @@ app.post("/admin/employees/generate-code", adminSessionValidation, async (req, r
   }
 });
 
-// [ADDED] DELETE /admin/employees/:id — delete an employee record
+/** DELETE /admin/employees/:id — Removes an employee record by ID. */
 app.delete("/admin/employees/:id", adminSessionValidation, async (req, res) => {
   try {
     const deleted = await Employee.findByIdAndDelete(req.params.id);
@@ -638,7 +807,11 @@ app.delete("/admin/employees/:id", adminSessionValidation, async (req, res) => {
   }
 });
 
-// GET /admin/requests — Admin Food Requests management page
+/**
+ * GET /admin/requests — Admin Food Requests management page.
+ * Shows all requests with stats, filter tabs, and approve/deny actions.
+ * @author Brian Lau
+ */
 app.get("/admin/requests", adminSessionValidation, async (req, res) => {
   try {
     const requests = await FoodRequest.find()
@@ -659,9 +832,19 @@ app.get("/admin/requests", adminSessionValidation, async (req, res) => {
   }
 });
 
-/* === Food Request API === */
+/* ============================================================
+ *  12. FOOD REQUEST API
+ *  CRUD operations for food requests: submit, view, approve,
+ *  deny, allocate inventory, confirm pickup, and cancel.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// POST /api/requests — client submits a food request
+/**
+ * POST /api/requests — Client submits a new food request.
+ * Validates input with Joi and creates a FoodRequest document.
+ */
 app.post(
   "/api/requests",
   (req, res, next) => {
@@ -699,7 +882,7 @@ app.post(
   },
 );
 
-// GET /api/requests/pending — admin views all pending requests (FIFO)
+/** GET /api/requests/pending — Admin views all pending requests sorted FIFO. */
 app.get(
   "/api/requests/pending",
   sessionValidation,
@@ -717,7 +900,7 @@ app.get(
   },
 );
 
-// GET /api/requests/me — client views their own request history
+/** GET /api/requests/me — Client views their own request history. */
 app.get("/api/requests/me", sessionValidation, async (req, res) => {
   try {
     const requests = await FoodRequest.find({ clientId: req.user.userId }).sort({ createdAt: -1 });
@@ -728,7 +911,7 @@ app.get("/api/requests/me", sessionValidation, async (req, res) => {
   }
 });
 
-// GET route to fetch all food requests
+/** GET /api/requests — Fetches all food requests (newest first). */
 app.get("/api/requests", async (req, res) => {
   try {
     const requests = await FoodRequest.find().sort({ createdAt: -1 });
@@ -738,7 +921,10 @@ app.get("/api/requests", async (req, res) => {
   }
 });
 
-// PATCH /api/requests/:id/approve — admin approves a request
+/**
+ * PATCH /api/requests/:id/approve — Admin approves a request.
+ * Requires a future pickupDate and pickupTime. Creates a notification for the client.
+ */
 app.patch(
   "/api/requests/:id/approve",
   sessionValidation,
@@ -791,7 +977,10 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/deny — admin denies a request
+/**
+ * PATCH /api/requests/:id/deny — Admin denies a request.
+ * Accepts an optional denialReason. Creates a notification for the client.
+ */
 app.patch(
   "/api/requests/:id/deny",
   sessionValidation,
@@ -844,7 +1033,10 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/allocate — admin allocates inventory items to an approved request
+/**
+ * PATCH /api/requests/:id/allocate — Admin allocates inventory items to an approved request.
+ * Validates that each item exists and has sufficient quantity before saving.
+ */
 app.patch(
   "/api/requests/:id/allocate",
   sessionValidation,
@@ -910,7 +1102,12 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/pickup — admin confirms pickup and decrements inventory
+/**
+ * PATCH /api/requests/:id/pickup — Admin confirms pickup and decrements inventory.
+ * Decrements each allocated item's quantity, triggers low-stock notifications
+ * if quantity drops below threshold, and creates a pickup-confirmed notification
+ * for the client (translated if non-English).
+ */
 app.patch(
   "/api/requests/:id/pickup",
   sessionValidation,
@@ -1022,7 +1219,11 @@ app.patch(
   },
 );
 
-// PATCH /api/requests/:id/cancel — client cancels their own pending request
+/**
+ * PATCH /api/requests/:id/cancel — Client cancels their own pending request.
+ * Only the request owner can cancel, and only if status is "pending".
+ * @author Brian Lau
+ */
 app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
   const schema = Joi.object({
     id: Joi.string()
@@ -1061,9 +1262,19 @@ app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
   }
 });
 
-/* === Admin Food Request API (admin-panel auth) === */
+/* ============================================================
+ *  13. ADMIN FOOD REQUEST API (admin-panel auth)
+ *  Separate endpoints using adminSessionValidation (reads admin_token cookie).
+ *  These exist because the regular /api/requests/* endpoints use
+ *  sessionValidation (reads user token) which is incompatible.
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// PATCH /admin/api/requests/:id/approve — admin approves a food request
+/**
+ * PATCH /admin/api/requests/:id/approve — Admin approves a food request.
+ * Validates pickupDate (future) and pickupTime (HH:MM), creates notification.
+ */
 app.patch("/admin/api/requests/:id/approve", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
     pickupDate: Joi.date().greater("now").required(),
@@ -1107,7 +1318,10 @@ app.patch("/admin/api/requests/:id/approve", adminSessionValidation, async (req,
   }
 });
 
-// PATCH /admin/api/requests/:id/deny — admin denies a food request
+/**
+ * PATCH /admin/api/requests/:id/deny — Admin denies a food request.
+ * Accepts optional denialReason (max 500 chars), creates notification.
+ */
 app.patch("/admin/api/requests/:id/deny", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
     denialReason: Joi.string().max(500).allow("").optional(),
@@ -1149,9 +1363,16 @@ app.patch("/admin/api/requests/:id/deny", adminSessionValidation, async (req, re
   }
 });
 
-/* === Inventory API === */
+/* ============================================================
+ *  14. INVENTORY API
+ *  JSON API for inventory CRUD operations (add, list, update, delete).
+ *  Used by both the admin panel and volunteer inventory pages.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ *  @author Claude Opus 4.7
+ * ============================================================ */
 
-// POST /api/inventory — admin adds an inventory item
+/** POST /api/inventory — Admin adds a new inventory item with audit logging. */
 app.post("/api/inventory", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
     name: Joi.string().min(3).max(100).required(),
@@ -1193,7 +1414,10 @@ app.post("/api/inventory", adminSessionValidation, async (req, res) => {
   }
 });
 
-// GET /api/inventory — any authed user
+/**
+ * GET /api/inventory — Any authenticated user can view inventory.
+ * Supports optional filters: status, category, expiringSoon, includeAllocated.
+ */
 app.get("/api/inventory", sessionValidation, async (req, res) => {
   try {
     const filter = {};
@@ -1241,7 +1465,7 @@ app.get("/api/inventory", sessionValidation, async (req, res) => {
   }
 });
 
-// GET /api/inventory/low-stock — admin dashboard view
+/** GET /api/inventory/low-stock — Returns items with low-stock or out-of-stock status. */
 app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => {
   try {
     const items = await InventoryItem.find({
@@ -1256,7 +1480,10 @@ app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => 
   }
 });
 
-// PATCH /api/inventory/:id — admin updates an inventory item
+/**
+ * PATCH /api/inventory/:id — Admin updates an inventory item.
+ * Triggers low-stock notifications if status worsens. Logs to audit trail.
+ */
 app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
     name: Joi.string().min(3).max(100).optional(),
@@ -1321,7 +1548,7 @@ app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   }
 });
 
-// DELETE /api/inventory/:id — admin deletes an inventory item
+/** DELETE /api/inventory/:id — Admin deletes an inventory item with audit logging. */
 app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   try {
     const deleted = await InventoryItem.findByIdAndDelete(req.params.id);
@@ -1342,9 +1569,15 @@ app.delete("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   }
 });
 
-/* === Inventory Pages (Admin UI) === */
+/* ============================================================
+ *  15. INVENTORY PAGE ROUTES (Volunteer/Admin UI)
+ *  Server-rendered pages for viewing and editing inventory.
+ *  @author Supreet Dosanj
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// GET /inventory — render inventory management page
+/** GET /inventory — Volunteer/admin inventory management page with search. */
 app.get("/inventory", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
   try {
     const search = req.query.search || "";
@@ -1367,7 +1600,7 @@ app.get("/inventory", sessionValidation, volunteerOrAdminAuthorization, async (r
   }
 });
 
-// GET /inventory/:id/edit — render edit form
+/** GET /inventory/:id/edit — Renders edit form for a single inventory item. */
 app.get("/inventory/:id/edit", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
   try {
     const item = await InventoryItem.findById(req.params.id).lean();
@@ -1379,7 +1612,7 @@ app.get("/inventory/:id/edit", sessionValidation, volunteerOrAdminAuthorization,
   }
 });
 
-// PATCH /inventory/:id — form-based update (method-override)
+/** PATCH /inventory/:id — Form-based inventory update (via method-override). */
 app.patch("/inventory/:id", sessionValidation, volunteerOrAdminAuthorization, async (req, res) => {
   try {
     await InventoryItem.findByIdAndUpdate(req.params.id, req.body, { runValidators: true });
@@ -1390,9 +1623,13 @@ app.patch("/inventory/:id", sessionValidation, volunteerOrAdminAuthorization, as
   }
 });
 
-/* === User Preferences API === */
+/* ============================================================
+ *  16. USER PREFERENCES API
+ *  Manages first-time mode and dismissed hints for onboarding UX.
+ *  @author Brian Lau
+ * ============================================================ */
 
-// GET /api/user/preferences
+/** GET /api/user/preferences — Returns the user's firstTimeMode and hintsSeen. */
 app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("firstTimeMode hintsSeen");
@@ -1407,7 +1644,7 @@ app.get("/api/user/preferences", sessionValidation, async (req, res) => {
   }
 });
 
-// PATCH /api/user/preferences
+/** PATCH /api/user/preferences — Updates firstTimeMode or dismisses a hint. */
 app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
   const schema = Joi.object({
     firstTimeMode: Joi.boolean(),
@@ -1443,8 +1680,19 @@ app.patch("/api/user/preferences", sessionValidation, async (req, res) => {
   }
 });
 
-/* === AI Smart Food Request Assistant === */
+/* ============================================================
+ *  17. AI SMART FOOD REQUEST ASSISTANT
+ *  Uses Google Gemini to parse natural-language household descriptions
+ *  into structured food request data (household size, dietary needs,
+ *  staff intake notes, confidence level, and warnings).
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
+/**
+ * System prompt for the Gemini AI intake assistant.
+ * Instructs the model to output structured JSON matching aiOutputSchema.
+ */
 const AI_SYSTEM_PROMPT = `You are a food bank intake assistant. Your job is to parse a client's natural-language description of their household into structured data for a food request.
 
 Rules:
@@ -1474,6 +1722,7 @@ Description: "I have 4 kids and my husband. We don't eat pork." staffNotes: "Fam
 Description: "My kids haven't eaten in 3 days please help" staffNotes: "PRIORITY: Client reports household has been without food for 3 days — please flag for urgent processing. Household size unclear, defaulted to 1 — confirm in person. Recommend connecting with crisis services in addition to food assistance."
 Description: "Tengo 3 hijos, somos vegetarianos, mi hija necesita pañales" staffNotes: "Client communicates in Spanish. Family of 4 (1 adult, 3 children), vegetarian household. Referral needed: client mentioned diapers — connect with partner agency for non-food supplies."`;
 
+/** Joi schema to validate the AI's JSON output before sending to the client. */
 const aiOutputSchema = Joi.object({
   householdSize: Joi.number().integer().min(1).max(20).required(),
   dietaryNeeds: Joi.array().items(Joi.string().max(50)).max(10).default([]),
@@ -1483,7 +1732,12 @@ const aiOutputSchema = Joi.object({
   warnings: Joi.array().items(Joi.string()).default([]),
 });
 
-// POST /api/ai/parse-request
+/**
+ * POST /api/ai/parse-request — Parses a natural-language description into
+ * structured food request data using Google Gemini.
+ * Rate-limited to 10 calls/hour per user (see aiLimiter above).
+ * Optionally uses the client's last 3 requests for context.
+ */
 app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
   const inputSchema = Joi.object({
     description: Joi.string().min(10).max(2000).required(),
@@ -1561,9 +1815,14 @@ app.post("/api/ai/parse-request", sessionValidation, async (req, res) => {
   }
 });
 
-/* === Notifications API === */
+/* ============================================================
+ *  18. NOTIFICATIONS API
+ *  CRUD for user notifications (request status updates, low-stock alerts).
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// GET /api/notifications — current user's notifications
+/** GET /api/notifications — Returns the current user's notifications with unread count. */
 app.get("/api/notifications", sessionValidation, async (req, res) => {
   try {
     const filter = { userId: req.user.userId };
@@ -1592,7 +1851,7 @@ app.get("/api/notifications", sessionValidation, async (req, res) => {
   }
 });
 
-// GET /api/notifications/unread-count — lightweight badge count
+/** GET /api/notifications/unread-count — Lightweight endpoint for navbar badge count. */
 app.get(
   "/api/notifications/unread-count",
   sessionValidation,
@@ -1610,7 +1869,7 @@ app.get(
   },
 );
 
-// PATCH /api/notifications/read-all — mark all unread as read
+/** PATCH /api/notifications/read-all — Marks all unread notifications as read. */
 app.patch(
   "/api/notifications/read-all",
   sessionValidation,
@@ -1628,7 +1887,7 @@ app.patch(
   },
 );
 
-// PATCH /api/notifications/:id/read — mark single notification as read
+/** PATCH /api/notifications/:id/read — Marks a single notification as read (ownership check). */
 app.patch(
   "/api/notifications/:id/read",
   sessionValidation,
@@ -1651,7 +1910,7 @@ app.patch(
   },
 );
 
-// DELETE /api/notifications/:id — dismiss a notification
+/** DELETE /api/notifications/:id — Dismisses (deletes) a notification (ownership check). */
 app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);
@@ -1669,16 +1928,24 @@ app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   }
 });
 
-/* === Clock-in routes (from yenyi_clock_in_page) === */
+/* ============================================================
+ *  19. CLOCK-IN / CLOCK-OUT ROUTES
+ *  Volunteer shift tracking: clock in, take breaks, clock out,
+ *  and view today's shift history.
+ *  @author Yen Yi Huang
+ * ============================================================ */
 
+/** GET /clock — Renders the clock-in page. */
 app.get("/clock", (req, res) => {
   res.render("clock-in");
 });
 
+/** GET /clocked-in — Renders the clocked-in confirmation page. */
 app.get("/clocked-in", (req, res) => {
   res.render("clocked-in");
 });
 
+/** POST /api/clock/in — Creates a new shift record with the current timestamp. */
 app.post("/api/clock/in", async (req, res) => {
   try {
     const { staffName } = req.body;
@@ -1698,6 +1965,7 @@ app.post("/api/clock/in", async (req, res) => {
   }
 });
 
+/** POST /api/clock/break — Starts or ends a break within an active shift. */
 app.post("/api/clock/break", async (req, res) => {
   try {
     const { shiftId, action } = req.body;
@@ -1722,6 +1990,7 @@ app.post("/api/clock/break", async (req, res) => {
   }
 });
 
+/** POST /api/clock/out — Ends the shift and records clock-out time. */
 app.post("/api/clock/out", async (req, res) => {
   try {
     const { shiftId } = req.body;
@@ -1745,6 +2014,7 @@ app.post("/api/clock/out", async (req, res) => {
   }
 });
 
+/** GET /api/clock/history — Returns today's completed shifts (sorted newest first). */
 app.get("/api/clock/history", async (req, res) => {
   try {
     const todayStart = new Date();
@@ -1764,9 +2034,15 @@ app.get("/api/clock/history", async (req, res) => {
   }
 });
 
-/* === Profile routes (from dev) === */
+/* ============================================================
+ *  20. PROFILE ROUTES
+ *  View and update user profile settings (household size, allergies,
+ *  dietary restrictions).
+ *  @author Shirin Sajeeb
+ *  @author Evan Tang
+ * ============================================================ */
 
-// SAVE SETTINGS TO USER PROFILE
+/** POST /api/profile — JSON API to save profile settings. */
 app.post("/api/profile", protect, async (req, res) => {
   try {
     const { householdSize, allergies, dietaryRestrictions } = req.body;
@@ -1797,7 +2073,7 @@ app.post("/api/profile", protect, async (req, res) => {
   }
 });
 
-// PROFILE PAGE
+/** GET /profile — Renders the profile settings page. */
 app.get("/profile", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -1815,7 +2091,7 @@ app.get("/profile", protect, async (req, res) => {
   }
 });
 
-// SAVE PROFILE
+/** POST /profile — Form-based profile update (renders profile page with success/error). */
 app.post("/profile", protect, async (req, res) => {
   try {
     const { householdSize, allergies, dietaryRestrictions } = req.body;
@@ -1846,9 +2122,16 @@ app.post("/profile", protect, async (req, res) => {
   }
 });
 
-/* === Admin Inventory page routes === */
+/* ============================================================
+ *  21. ADMIN INVENTORY PAGE ROUTES
+ *  Server-rendered admin inventory management with add, edit,
+ *  delete (via method-override), filtering, and audit logging.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// GET /admin/inventory — view and filter all inventory items
+/** GET /admin/inventory — Admin inventory page with search, category, and status filters. */
 app.get("/admin/inventory", adminSessionValidation, async (req, res) => {
   try {
     const { search, category, status, location } = req.query;
@@ -1885,7 +2168,7 @@ app.get("/admin/inventory", adminSessionValidation, async (req, res) => {
   }
 });
 
-// POST /admin/inventory — add a new item (form submission from modal)
+/** POST /admin/inventory — Adds a new inventory item from the admin modal form. */
 app.post("/admin/inventory", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
     name:            Joi.string().min(3).max(100).required(),
@@ -1935,7 +2218,11 @@ app.post("/admin/inventory", adminSessionValidation, async (req, res) => {
   }
 });
 
-// POST /admin/inventory/:id — edit or delete (method override via hidden _method field)
+/**
+ * POST /admin/inventory/:id — Edit or delete an inventory item.
+ * Uses hidden _method field for method override (DELETE or PATCH).
+ * Triggers low-stock notifications and writes to audit log.
+ */
 app.post("/admin/inventory/:id", adminSessionValidation, async (req, res) => {
   const method = (req.body._method || "").toUpperCase();
 
@@ -2017,9 +2304,15 @@ app.post("/admin/inventory/:id", adminSessionValidation, async (req, res) => {
   }
 });
 
-/* === Admin Audit Log page === */
+/* ============================================================
+ *  22. ADMIN AUDIT LOG PAGE
+ *  Paginated, filterable audit log of all inventory actions.
+ *  @author Brian Lau
+ *  @author Supreet Dosanj
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// GET /admin/audit-log
+/** GET /admin/audit-log — Paginated audit log with search, action, and date filters. */
 app.get("/admin/audit-log", adminSessionValidation, async (req, res) => {
   try {
     const { search, action, dateFrom, dateTo } = req.query;
@@ -2098,9 +2391,15 @@ app.get("/admin/audit-log", adminSessionValidation, async (req, res) => {
 });
 
 
-/* === Admin Low Stock Alerts page === */
+/* ============================================================
+ *  23. ADMIN LOW STOCK ALERTS PAGE
+ *  Displays inventory items that are low-stock or out-of-stock,
+ *  with options to mark read, dismiss, or restock directly.
+ *  @author Brian Lau
+ *  @author Claude Opus 4.6
+ * ============================================================ */
 
-// GET /admin/low-stock-alerts
+/** GET /admin/low-stock-alerts — Low stock alerts page with filter tabs. */
 app.get("/admin/low-stock-alerts", adminSessionValidation, async (req, res) => {
   try {
     const filter = req.query.filter || "all";
@@ -2149,7 +2448,7 @@ app.get("/admin/low-stock-alerts", adminSessionValidation, async (req, res) => {
   }
 });
 
-// POST /admin/low-stock-alerts/mark-all-read
+/** POST /admin/low-stock-alerts/mark-all-read — Marks all low-stock notifications as read. */
 app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async (req, res) => {
   try {
     await Notification.updateMany({ type: "low-stock", read: false }, { $set: { read: true } });
@@ -2160,7 +2459,7 @@ app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async 
   }
 });
 
-// POST /admin/low-stock-alerts/dismiss-read
+/** POST /admin/low-stock-alerts/dismiss-read — Deletes all read low-stock notifications. */
 app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (req, res) => {
   try {
     await Notification.deleteMany({ type: "low-stock", read: true });
@@ -2171,7 +2470,7 @@ app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (
   }
 });
 
-// POST /admin/low-stock-alerts/:id/read
+/** POST /admin/low-stock-alerts/:id/read — Marks a single alert as read. */
 app.post("/admin/low-stock-alerts/:id/read", adminSessionValidation, async (req, res) => {
   try {
     await Notification.findByIdAndUpdate(req.params.id, { read: true });
@@ -2182,7 +2481,7 @@ app.post("/admin/low-stock-alerts/:id/read", adminSessionValidation, async (req,
   }
 });
 
-// POST /admin/low-stock-alerts/:id/dismiss
+/** POST /admin/low-stock-alerts/:id/dismiss — Deletes a single alert notification. */
 app.post("/admin/low-stock-alerts/:id/dismiss", adminSessionValidation, async (req, res) => {
   try {
     await Notification.findByIdAndDelete(req.params.id);
@@ -2193,7 +2492,7 @@ app.post("/admin/low-stock-alerts/:id/dismiss", adminSessionValidation, async (r
   }
 });
 
-// POST /admin/low-stock-alerts/:id/restock — update inventory quantity from alert
+/** POST /admin/low-stock-alerts/:id/restock — Updates inventory quantity directly from the alerts page. */
 app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (req, res) => {
   try {
     const quantity = parseInt(req.body.quantity, 10);
@@ -2213,14 +2512,20 @@ app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (r
 })
 
 
-/* === 404 catch-all === */
+/* ============================================================
+ *  24. 404 CATCH-ALL
+ * ============================================================ */
 
+/** Catch-all — renders the 404 page for any unmatched routes. */
 app.use((req, res) => {
   res.status(404);
   res.render("404");
 });
 
-/* === Start === */
+/* ============================================================
+ *  25. SERVER STARTUP
+ *  Connects to MongoDB Atlas and starts the Express HTTP server.
+ * ============================================================ */
 
 connectDB()
   .then(() => {

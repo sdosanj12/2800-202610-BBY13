@@ -1,3 +1,12 @@
+/**
+ * AuditLog model — Records all inventory-related actions (added, updated,
+ * deleted, approved, denied, pickup) for accountability and traceability.
+ * performedBy is stored as a string so the record survives employee deletion.
+ *
+ * @author Brian Lau
+ * @author Supreet Dosanj
+ */
+
 const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema(

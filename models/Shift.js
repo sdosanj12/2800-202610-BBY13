@@ -1,4 +1,10 @@
-// models/Shift.js
+/**
+ * Shift model — Tracks volunteer clock-in/clock-out times and break durations.
+ * breakDuration is stored in milliseconds.
+ *
+ * @author Yen Yi Huang
+ */
+
 const mongoose = require("mongoose");
 
 const shiftSchema = new mongoose.Schema(
