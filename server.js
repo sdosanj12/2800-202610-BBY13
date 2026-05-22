@@ -18,7 +18,8 @@ const Employee = require("./models/Employee");
 const FoodRequest = require("./models/FoodRequest");
 const InventoryItem = require("./models/InventoryItem");
 const Notification = require("./models/Notification");
-const AuditLog     = require("./models/AuditLog");
+const ShiftLog = require("./models/Shift");
+const AuditLog = require("./models/AuditLog");
 
 const protect = require("./middleware/auth");
 
@@ -940,6 +941,7 @@ app.patch(
         item.quantity -= allocation.quantity;
         await item.save();
 
+        // Notify admin users on transition into low-stock or out-of-stock
         try {
           const isNowLowOrOut = ["low-stock", "out-of-stock"].includes(
             item.status,
@@ -1246,7 +1248,6 @@ app.get("/api/inventory/low-stock", adminSessionValidation, async (req, res) => 
   }
 });
 
-// PATCH /api/inventory/:id — admin updates an inventory item
 // PATCH /api/inventory/:id — admin updates an inventory item
 app.patch("/api/inventory/:id", adminSessionValidation, async (req, res) => {
   const schema = Joi.object({
@@ -1660,6 +1661,103 @@ app.delete("/api/notifications/:id", sessionValidation, async (req, res) => {
   }
 });
 
+/* === Clock-in routes (from yenyi_clock_in_page) === */
+
+app.get("/clock", (req, res) => {
+  res.render("clock-in");
+});
+
+app.get("/clocked-in", (req, res) => {
+  res.render("clocked-in");
+});
+
+app.post("/api/clock/in", async (req, res) => {
+  try {
+    const { staffName } = req.body;
+    if (!staffName)
+      return res.status(400).json({ error: "Staff name is required." });
+
+    const newShift = new ShiftLog({
+      staffName,
+      clockInTime: new Date(),
+    });
+    await newShift.save();
+
+    res.json({ success: true, shift: newShift });
+  } catch (err) {
+    console.error("Clock-in DB error:", err);
+    res.status(500).json({ error: "Database error during clock-in." });
+  }
+});
+
+app.post("/api/clock/break", async (req, res) => {
+  try {
+    const { shiftId, action } = req.body;
+    const shift = await ShiftLog.findById(shiftId);
+    if (!shift)
+      return res.status(404).json({ error: "Active shift not found." });
+
+    const now = new Date();
+    if (action === "start") {
+      shift.breakStartTime = now;
+    } else if (action === "end" && shift.breakStartTime) {
+      const elapsedBreak = now - new Date(shift.breakStartTime);
+      shift.breakDuration += elapsedBreak;
+      shift.breakStartTime = null;
+    }
+
+    await shift.save();
+    res.json({ success: true, shift });
+  } catch (err) {
+    console.error("Break database error:", err);
+    res.status(500).json({ error: "Database error tracking shift break." });
+  }
+});
+
+app.post("/api/clock/out", async (req, res) => {
+  try {
+    const { shiftId } = req.body;
+    const shift = await ShiftLog.findById(shiftId);
+    if (!shift)
+      return res.status(404).json({ error: "Shift document not found." });
+
+    const now = new Date();
+    if (shift.breakStartTime) {
+      shift.breakDuration += now - new Date(shift.breakStartTime);
+      shift.breakStartTime = null;
+    }
+
+    shift.clockOutTime = now;
+    await shift.save();
+
+    res.json({ success: true, shift });
+  } catch (err) {
+    console.error("Clock-out tracking error:", err);
+    res.status(500).json({ error: "Database exception checking out shift." });
+  }
+});
+
+app.get("/api/clock/history", async (req, res) => {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const logs = await ShiftLog.find({
+      clockInTime: { $gte: todayStart },
+      clockOutTime: { $ne: null },
+    }).sort({ clockInTime: -1 });
+
+    res.json(logs);
+  } catch (err) {
+    console.error("Fetch history error:", err);
+    res
+      .status(500)
+      .json({ error: "Database error compiling timeline log history." });
+  }
+});
+
+/* === Profile routes (from dev) === */
+
 // SAVE SETTINGS TO USER PROFILE
 app.post("/api/profile", protect, async (req, res) => {
   try {
@@ -1690,6 +1788,7 @@ app.post("/api/profile", protect, async (req, res) => {
     });
   }
 });
+
 // PROFILE PAGE
 app.get("/profile", protect, async (req, res) => {
   try {
