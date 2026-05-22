@@ -109,6 +109,18 @@
                   <span>Low Sodium</span>
                 </label>
               </div>
+
+              <label class="form-label" style="margin-top: 1rem;">
+                Other restrictions
+                <span class="optional">(separate with commas)</span>
+              </label>
+              <input
+                class="form-input"
+                id="other-diet"
+                type="text"
+                placeholder="e.g. kosher, shellfish allergy, diabetic-friendly"
+                maxlength="200"
+              />
             </div>
           </div>
 
@@ -199,6 +211,14 @@
         const dietaryNeeds = [
           ...document.querySelectorAll('input[name="diet"]:checked'),
         ].map((cb) => cb.value);
+
+        const otherDiet = $("other-diet").value.trim();
+        if (otherDiet) {
+          otherDiet.split(",").forEach((s) => {
+            const v = s.trim();
+            if (v.length > 0) dietaryNeeds.push(v);
+          });
+        }
 
         const payload = {
           householdSize: parseInt($("household-size").value, 10),
