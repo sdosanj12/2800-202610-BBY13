@@ -1,6 +1,19 @@
+/**
+ * Auth middleware — Verifies the user JWT from the token cookie,
+ * fetches the full User document, and attaches it to req.user.
+ * Used by profile routes that need the complete user object (not just decoded JWT).
+ *
+ * @author Shirin Sajeeb
+ * @author Brian Lau
+ */
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+/**
+ * Express middleware that protects routes by verifying the JWT cookie.
+ * Returns 401 if the token is missing, invalid, or the user no longer exists.
+ */
 const protect = async (req, res, next) => {
   try {
 

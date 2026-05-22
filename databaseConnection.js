@@ -1,3 +1,10 @@
+/**
+ * Database connection module — Connects to MongoDB Atlas using Mongoose.
+ * Reads connection credentials from environment variables.
+ *
+ * @author Brian Lau
+ */
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 
@@ -9,6 +16,10 @@ if (!MONGODB_HOST || !MONGODB_USER || !MONGODB_PASSWORD || !MONGODB_DATABASE) {
 
 const uri = `mongodb+srv://${MONGODB_USER}:${MONGODB_PASSWORD}@${MONGODB_HOST}/${MONGODB_DATABASE}?retryWrites=true&w=majority`;
 
+/**
+ * Connects to MongoDB Atlas. Exits the process if connection fails.
+ * @returns {Promise<void>}
+ */
 async function connectDB() {
   try {
     await mongoose.connect(uri);
