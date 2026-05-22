@@ -629,6 +629,27 @@ app.delete("/admin/employees/:id", adminSessionValidation, async (req, res) => {
   }
 });
 
+// GET /admin/requests — Admin Food Requests management page
+app.get("/admin/requests", adminSessionValidation, async (req, res) => {
+  try {
+    const requests = await FoodRequest.find()
+      .populate("clientId", "username email")
+      .sort({ createdAt: -1 });
+
+    const stats = {
+      total: requests.length,
+      pending: requests.filter((r) => r.status === "pending").length,
+      approved: requests.filter((r) => r.status === "approved").length,
+      denied: requests.filter((r) => r.status === "denied").length,
+    };
+
+    res.render("admin-requests", { username: req.employee.name, requests, stats });
+  } catch (err) {
+    console.error("Admin requests error:", err.message);
+    res.status(500).render("errorMessage", { error: "Failed to load requests" });
+  }
+});
+
 /* === Food Request API === */
 
 // POST /api/requests — client submits a food request
@@ -1026,6 +1047,94 @@ app.patch("/api/requests/:id/cancel", sessionValidation, async (req, res) => {
     return res.status(200).json({ message: "Request cancelled", request });
   } catch (err) {
     console.error("Cancel error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* === Admin Food Request API (admin-panel auth) === */
+
+// PATCH /admin/api/requests/:id/approve — admin approves a food request
+app.patch("/admin/api/requests/:id/approve", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    pickupDate: Joi.date().greater("now").required(),
+    pickupTime: Joi.string().pattern(/^([01]\d|2[0-3]):([0-5]\d)$/).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const request = await FoodRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+    if (request.status !== "pending") {
+      return res.status(400).json({ error: "Only pending requests can be approved." });
+    }
+
+    request.status = "approved";
+    request.pickupDate = value.pickupDate;
+    request.pickupTime = value.pickupTime;
+    request.approvedBy = req.employee.employeeDbId;
+    request.approvedAt = new Date();
+    await request.save();
+
+    try {
+      const pickupDateStr = new Date(value.pickupDate).toLocaleDateString();
+      await Notification.create({
+        userId: request.clientId,
+        type: "request-approved",
+        message: `Your food request has been approved. Pickup: ${pickupDateStr} at ${value.pickupTime}.`,
+        relatedId: request._id,
+        relatedType: "FoodRequest",
+      });
+    } catch (notifErr) {
+      console.error("Failed to create approval notification:", notifErr.message);
+    }
+
+    return res.status(200).json({ message: "Request approved", request });
+  } catch (err) {
+    console.error("Admin approve error:", err.message);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// PATCH /admin/api/requests/:id/deny — admin denies a food request
+app.patch("/admin/api/requests/:id/deny", adminSessionValidation, async (req, res) => {
+  const schema = Joi.object({
+    denialReason: Joi.string().max(500).allow("").optional(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ error: error.details[0].message });
+
+  try {
+    const request = await FoodRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ error: "Request not found" });
+    if (request.status !== "pending") {
+      return res.status(400).json({ error: "Only pending requests can be denied." });
+    }
+
+    request.status = "denied";
+    request.denialReason = value.denialReason || "";
+    request.approvedBy = req.employee.employeeDbId;
+    request.approvedAt = new Date();
+    await request.save();
+
+    try {
+      const reason = value.denialReason ? ` Reason: ${value.denialReason}` : "";
+      await Notification.create({
+        userId: request.clientId,
+        type: "request-denied",
+        message: `Your food request was not approved.${reason}`,
+        relatedId: request._id,
+        relatedType: "FoodRequest",
+      });
+    } catch (notifErr) {
+      console.error("Failed to create denial notification:", notifErr.message);
+    }
+
+    return res.status(200).json({ message: "Request denied", request });
+  } catch (err) {
+    console.error("Admin deny error:", err.message);
     return res.status(500).json({ error: "Server error" });
   }
 });
