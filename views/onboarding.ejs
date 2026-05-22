@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,46 +8,68 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    .step-anim { animation: fadeIn 0.35s ease-out; }
+
+    .step-anim {
+      animation: fadeIn 0.35s ease-out;
+    }
   </style>
 </head>
-<body class="bg-stone-50 min-h-screen flex items-center justify-center px-4 py-10">
 
+<body class="bg-stone-50 min-h-screen flex items-center justify-center px-4 py-10">
+  <header id="navbar-container">
+    <%- include('partials/navbar') %>
+  </header>
   <div class="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 sm:p-10">
 
     <!-- Step 1 -->
     <div id="step-1" class="step step-anim text-center">
       <div class="mx-auto w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center text-4xl mb-6">🍎</div>
       <h2 class="text-2xl font-bold text-slate-900 mb-3">Welcome, <%= username %>!</h2>
-      <p class="text-slate-600 leading-relaxed mb-8">Food Bank Tracker helps you get food for your family with just a few taps.</p>
-      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+      <p class="text-slate-600 leading-relaxed mb-8">Food Bank Tracker helps you get food for your family with just a
+        few taps.</p>
+      <button onclick="nextStep()"
+        class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
     </div>
 
     <!-- Step 2 -->
     <div id="step-2" class="step step-anim text-center hidden">
       <div class="mx-auto w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center text-4xl mb-6">📋</div>
       <h2 class="text-2xl font-bold text-slate-900 mb-3">Submit food requests</h2>
-      <p class="text-slate-600 leading-relaxed mb-8">Tell us your household size and dietary needs. We'll prepare a package tailored to your family.</p>
-      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+      <p class="text-slate-600 leading-relaxed mb-8">Tell us your household size and dietary needs. We'll prepare a
+        package tailored to your family.</p>
+      <button onclick="nextStep()"
+        class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
     </div>
 
     <!-- Step 3 -->
     <div id="step-3" class="step step-anim text-center hidden">
       <div class="mx-auto w-20 h-20 rounded-full bg-sky-100 flex items-center justify-center text-4xl mb-6">⏰</div>
       <h2 class="text-2xl font-bold text-slate-900 mb-3">Track your requests</h2>
-      <p class="text-slate-600 leading-relaxed mb-8">See the status of all your requests and find your pickup time all in one place.</p>
-      <button onclick="nextStep()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
+      <p class="text-slate-600 leading-relaxed mb-8">See the status of all your requests and find your pickup time all
+        in one place.</p>
+      <button onclick="nextStep()"
+        class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Next</button>
     </div>
 
     <!-- Step 4 -->
     <div id="step-4" class="step step-anim text-center hidden">
       <div class="mx-auto w-20 h-20 rounded-full bg-rose-100 flex items-center justify-center text-4xl mb-6">🚀</div>
       <h2 class="text-2xl font-bold text-slate-900 mb-3">Ready to get started?</h2>
-      <p class="text-slate-600 leading-relaxed mb-8">Visit your dashboard to submit your first food request. We're here to help.</p>
-      <button onclick="completeOnboarding()" class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Get Started</button>
+      <p class="text-slate-600 leading-relaxed mb-8">Visit your dashboard to submit your first food request. We're here
+        to help.</p>
+      <button onclick="completeOnboarding()"
+        class="bg-slate-900 hover:bg-slate-800 text-white rounded-full py-3 px-10 font-medium transition-colors">Get
+        Started</button>
     </div>
 
     <!-- Step dots -->
@@ -59,12 +82,19 @@
 
     <!-- Skip -->
     <div class="text-center mt-6">
-      <button onclick="skipOnboarding()" class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Skip</button>
+      <button onclick="skipOnboarding()"
+        class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">Skip</button>
     </div>
   </div>
 
+  <footer class="footer">
+    <div id="footer-container">
+      <%- include('partials/footer') %>
+    </div>
+  </footer>
+
   <script>
-    const dashboardRole = <%- JSON.stringify(dashboardRole) %>;
+    const dashboardRole = <% - JSON.stringify(dashboardRole) %>;
     const dashboardUrl = `/${dashboardRole}/dashboard`;
     const totalSteps = 4;
     let currentStep = 1;
@@ -130,4 +160,5 @@
     }
   </script>
 </body>
+
 </html>

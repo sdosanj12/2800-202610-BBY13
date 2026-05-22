@@ -1,116 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Request — Food Bank Tracker</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/request.css" />
-    <style>
-      /* AI-request specific additions */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .fade-in { animation: fadeIn 0.35s ease-out; }
-      @keyframes pulseOpacity {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-      .pulse-loading { animation: pulseOpacity 1.5s ease-in-out infinite; }
-      .hidden { display: none !important; }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Request — Food Bank Tracker</title>
 
-      .confidence-badge {
-        display: inline-block;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        padding: 0.2rem 0.6rem;
-        border-radius: 999px;
-      }
-      .confidence-high { background: #ecfdf5; color: #065f46; }
-      .confidence-medium { background: #fffbeb; color: #92400e; }
-      .confidence-low { background: #fef2f2; color: #991b1b; }
-
-      .warnings-banner {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: var(--radius-md);
-        padding: 0.75rem 1rem;
-        margin-bottom: 1.25rem;
-      }
-      .warnings-banner p { font-size: 0.8rem; font-weight: 600; color: #92400e; margin-bottom: 0.4rem; }
-      .warnings-banner ul { list-style: disc inside; font-size: 0.8rem; color: #b45309; }
-      .warnings-banner li { margin-bottom: 0.2rem; }
-
-      .ai-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.7rem;
-        font-weight: 600;
-        background: #f3e8ff;
-        color: #7c3aed;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/request.css" />
+  <style>
+    /* AI-request specific additions */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
       }
 
-      .staff-notes-box {
-        width: 100%;
-        border: 1px solid var(--color-card-border);
-        background: var(--color-bg);
-        border-radius: var(--radius-md);
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-        color: var(--color-text);
-        white-space: pre-wrap;
-        min-height: 60px;
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.35s ease-out;
+    }
+
+    @keyframes pulseOpacity {
+
+      0%,
+      100% {
+        opacity: 1;
       }
 
-      .link-btn {
-        background: none;
-        border: none;
-        color: var(--color-navy);
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        text-decoration: underline;
-        padding: 0;
-        margin-top: 0.5rem;
+      50% {
+        opacity: 0.5;
       }
-      .link-btn:hover { color: var(--color-navy-dark); }
-      .link-btn:disabled { color: var(--color-muted); cursor: not-allowed; }
+    }
 
-      .loading-text {
-        font-size: 0.8rem;
-        color: var(--color-muted);
-        margin-top: 0.5rem;
-      }
+    .pulse-loading {
+      animation: pulseOpacity 1.5s ease-in-out infinite;
+    }
 
-      .char-counter {
-        text-align: right;
-        font-size: 0.75rem;
-        color: #9ca3af;
-        margin-top: 0.25rem;
-      }
-      .char-counter.valid { color: #059669; }
-      .char-counter.over { color: var(--color-error-text); }
-    </style>
-  </head>
-  <body>
-    <%- include('partials/navbar') %>
+    .hidden {
+      display: none !important;
+    }
+
+    .confidence-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    .confidence-high {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .confidence-medium {
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .confidence-low {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .warnings-banner {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .warnings-banner p {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #92400e;
+      margin-bottom: 0.4rem;
+    }
+
+    .warnings-banner ul {
+      list-style: disc inside;
+      font-size: 0.8rem;
+      color: #b45309;
+    }
+
+    .warnings-banner li {
+      margin-bottom: 0.2rem;
+    }
+
+    .ai-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: #f3e8ff;
+      color: #7c3aed;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+    }
+
+    .staff-notes-box {
+      width: 100%;
+      border: 1px solid var(--color-card-border);
+      background: var(--color-bg);
+      border-radius: var(--radius-md);
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: var(--color-text);
+      white-space: pre-wrap;
+      min-height: 60px;
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--color-navy);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+      margin-top: 0.5rem;
+    }
+
+    .link-btn:hover {
+      color: var(--color-navy-dark);
+    }
+
+    .link-btn:disabled {
+      color: var(--color-muted);
+      cursor: not-allowed;
+    }
+
+    .loading-text {
+      font-size: 0.8rem;
+      color: var(--color-muted);
+      margin-top: 0.5rem;
+    }
+
+    .char-counter {
+      text-align: right;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 0.25rem;
+    }
+
+    .char-counter.valid {
+      color: #059669;
+    }
+
+    .char-counter.over {
+      color: var(--color-error-text);
+    }
+  </style>
+</head>
+
+<body>
+  <%- include('partials/navbar') %>
 
     <main class="page-content">
       <h1 class="page-heading">Smart Request Assistant</h1>
       <p class="page-sub">
-        Describe your household in plain English — AI fills the form for you. You'll review everything before submitting.
+        Describe your household in plain English — AI fills the form for you. You'll review everything before
+        submitting.
       </p>
 
       <div class="form-card">
@@ -130,13 +193,8 @@
               <label class="form-label" for="description">
                 Your description <span class="required">*</span>
               </label>
-              <textarea
-                class="form-textarea"
-                id="description"
-                rows="6"
-                maxlength="2000"
-                placeholder="Example: I have 2 young kids and my mom lives with us. My daughter has a peanut allergy and we don't eat pork."
-              ></textarea>
+              <textarea class="form-textarea" id="description" rows="6" maxlength="2000"
+                placeholder="Example: I have 2 young kids and my mom lives with us. My daughter has a peanut allergy and we don't eat pork."></textarea>
               <p class="char-counter">
                 <span id="char-current">0</span> / 2000
               </p>
@@ -161,7 +219,8 @@
         <div id="step-2" class="hidden fade-in">
           <div class="form-section">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-              <p class="form-section-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Review Your Request</p>
+              <p class="form-section-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Review Your
+                Request</p>
               <span id="confidence-badge" class="confidence-badge"></span>
             </div>
 
@@ -175,38 +234,23 @@
               <label class="form-label" for="householdSize">
                 Household Size <span class="required">*</span>
               </label>
-              <input
-                class="form-input"
-                id="householdSize"
-                type="number"
-                min="1"
-                max="20"
-              />
+              <input class="form-input" id="householdSize" type="number" min="1" max="20" />
             </div>
 
             <div class="form-group">
               <label class="form-label" for="dietaryNeeds">
                 Dietary Needs <span class="optional">(comma-separated)</span>
               </label>
-              <input
-                class="form-input"
-                id="dietaryNeeds"
-                type="text"
-                placeholder="e.g. vegetarian, peanut allergy, halal"
-              />
+              <input class="form-input" id="dietaryNeeds" type="text"
+                placeholder="e.g. vegetarian, peanut allergy, halal" />
             </div>
 
             <div class="form-group">
               <label class="form-label" for="clientNotes">
                 Your notes for staff <span class="optional">(optional)</span>
               </label>
-              <textarea
-                class="form-textarea"
-                id="clientNotes"
-                rows="3"
-                maxlength="500"
-                placeholder="Any extra details..."
-              ></textarea>
+              <textarea class="form-textarea" id="clientNotes" rows="3" maxlength="500"
+                placeholder="Any extra details..."></textarea>
             </div>
 
             <div class="form-group">
@@ -221,7 +265,8 @@
               <button type="button" id="btn-regenerate" class="link-btn">
                 Regenerate intake summary
               </button>
-              <span id="regen-loading" class="loading-text hidden pulse-loading" style="display:inline; margin-left:0.5rem;">
+              <span id="regen-loading" class="loading-text hidden pulse-loading"
+                style="display:inline; margin-left:0.5rem;">
                 Regenerating...
               </span>
             </div>
@@ -243,197 +288,222 @@
 
     <%- include('partials/footer') %>
 
-    <script>
-      function $(id) { return document.getElementById(id); }
+      <!-- Step 2: Review parsed result -->
+      <div id="step-2" class="fade-in hidden">
+        <div class="flex items-start justify-between mb-4">
+          <h2 class="text-2xl font-bold text-slate-900">Review your request</h2>
+          <span id="confidence-badge"
+            class="inline-block text-xs font-semibold uppercase px-3 py-1 rounded-full"></span>
+        </div>
+        <script>
+          function $(id) { return document.getElementById(id); }
 
-      const descEl = $("description");
-      const charCurrent = $("char-current");
-      const charCounter = descEl.closest(".form-group").querySelector(".char-counter");
-      const btnPreview = $("btn-preview");
-      const btnEdit = $("btn-edit");
-      const btnSubmit = $("btn-submit");
-      const btnRegenerate = $("btn-regenerate");
-      const regenLoading = $("regen-loading");
-      const step1 = $("step-1");
-      const step2 = $("step-2");
-      const step1Error = $("step1-error");
-      const loadingMsg = $("loading-msg");
-      const step2Error = $("step2-error");
+          const descEl = $("description");
+          const charCurrent = $("char-current");
+          const charCounter = descEl.closest(".form-group").querySelector(".char-counter");
+          const btnPreview = $("btn-preview");
+          const btnEdit = $("btn-edit");
+          const btnSubmit = $("btn-submit");
+          const btnRegenerate = $("btn-regenerate");
+          const regenLoading = $("regen-loading");
+          const step1 = $("step-1");
+          const step2 = $("step-2");
+          const step1Error = $("step1-error");
+          const loadingMsg = $("loading-msg");
+          const step2Error = $("step2-error");
 
-      let lastDescription = "";
+          <!-- Warnings banner -->
+          <div id="warnings-banner" class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 hidden">
+            <p class="text-amber-800 font-semibold text-sm mb-2">
+              Heads up from the assistant:
+            </p>
+            <ul id="warnings-list" class="list-disc list-inside text-amber-700 text-sm space-y-1"></ul>
+          </div>
 
-      /* ── Character counter ── */
-      descEl.addEventListener("input", () => {
-        const len = descEl.value.length;
-        charCurrent.textContent = len;
-        charCounter.classList.remove("valid", "over");
-        if (len >= 10 && len <= 2000) charCounter.classList.add("valid");
-        else if (len > 2000) charCounter.classList.add("over");
-      });
-
-      function showError(el, msg) {
-        el.textContent = msg;
-        el.classList.add("visible");
-        el.classList.remove("hidden");
-      }
-
-      function hideError(el) {
-        el.textContent = "";
-        el.classList.remove("visible");
-      }
-
-      function populateFromAI(data) {
-        $("householdSize").value = data.parsed.householdSize;
-        $("dietaryNeeds").value = (data.parsed.dietaryNeeds || []).join(", ");
-        $("clientNotes").value = data.parsed.clientNotes || "";
-        $("staffNotes").textContent = data.parsed.staffNotes || "";
-
-        // Confidence badge
-        const badge = $("confidence-badge");
-        badge.textContent = data.parsed.confidence;
-        badge.className = "confidence-badge confidence-" + (data.parsed.confidence || "medium");
-
-        // Warnings
-        const warningsBanner = $("warnings-banner");
-        const warningsList = $("warnings-list");
-        warningsList.innerHTML = "";
-        if (data.parsed.warnings && data.parsed.warnings.length > 0) {
-          data.parsed.warnings.forEach(function(w) {
-            var li = document.createElement("li");
-            li.textContent = w;
-            warningsList.appendChild(li);
-          });
-          warningsBanner.classList.remove("hidden");
-        } else {
-          warningsBanner.classList.add("hidden");
-        }
-      }
-
-      /* ── Step 1 → Preview ── */
-      btnPreview.addEventListener("click", async () => {
-        hideError(step1Error);
-        var description = descEl.value.trim();
-
-        if (description.length < 10) {
-          showError(step1Error, "Please write at least 10 characters describing your household.");
-          return;
-        }
-        if (description.length > 2000) {
-          showError(step1Error, "Description is too long. Please keep it under 2000 characters.");
-          return;
-        }
-
-        btnPreview.disabled = true;
-        loadingMsg.classList.remove("hidden");
-
-        try {
-          var res = await fetch("/api/ai/parse-request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ description: description })
+          /* ── Character counter ── */
+          descEl.addEventListener("input", () => {
+            const len = descEl.value.length;
+            charCurrent.textContent = len;
+            charCounter.classList.remove("valid", "over");
+            if (len >= 10 && len <= 2000) charCounter.classList.add("valid");
+            else if (len > 2000) charCounter.classList.add("over");
           });
 
-          var data = await res.json();
+          function showError(el, msg) {
+            el.textContent = msg;
+            el.classList.add("visible");
+            el.classList.remove("hidden");
+          }
+    });
 
-          if (!res.ok) {
-            showError(step1Error, data.error || "Something went wrong. Please try again.");
-            return;
+          function hideError(el) {
+            el.textContent = "";
+            el.classList.remove("visible");
+          }
+    }
+
+          function populateFromAI(data) {
+            $("householdSize").value = data.parsed.householdSize;
+            $("dietaryNeeds").value = (data.parsed.dietaryNeeds || []).join(", ");
+            $("clientNotes").value = data.parsed.clientNotes || "";
+            $("staffNotes").textContent = data.parsed.staffNotes || "";
+
+            // Confidence badge
+            const badge = $("confidence-badge");
+            badge.textContent = data.parsed.confidence;
+            badge.className = "confidence-badge confidence-" + (data.parsed.confidence || "medium");
+
+            // Warnings
+            const warningsBanner = $("warnings-banner");
+            const warningsList = $("warnings-list");
+            warningsList.innerHTML = "";
+            if (data.parsed.warnings && data.parsed.warnings.length > 0) {
+              data.parsed.warnings.forEach(function (w) {
+                var li = document.createElement("li");
+                li.textContent = w;
+                warningsList.appendChild(li);
+              });
+              warningsBanner.classList.remove("hidden");
+            } else {
+              warningsBanner.classList.add("hidden");
+            }
           }
 
-          lastDescription = description;
-          populateFromAI(data);
+          /* ── Step 1 → Preview ── */
+          btnPreview.addEventListener("click", async () => {
+            hideError(step1Error);
+            var description = descEl.value.trim();
 
-          step1.classList.add("hidden");
-          step2.classList.remove("hidden");
-          step2.classList.remove("fade-in");
-          void step2.offsetWidth;
-          step2.classList.add("fade-in");
-        } catch (err) {
-          showError(step1Error, "Network error. Please check your connection and try again.");
-        } finally {
-          btnPreview.disabled = false;
-          loadingMsg.classList.add("hidden");
-        }
-      });
+            if (description.length < 10) {
+              showError(step1Error, "Please write at least 10 characters describing your household.");
+              return;
+            }
+            if (description.length > 2000) {
+              showError(step1Error, "Description is too long. Please keep it under 2000 characters.");
+              return;
+            }
 
-      /* ── Regenerate ── */
-      btnRegenerate.addEventListener("click", async () => {
-        if (!lastDescription) return;
-        if (!confirm("This will re-run the AI assistant and may overwrite your edits. Continue?")) return;
+            btnPreview.disabled = true;
+            loadingMsg.classList.remove("hidden");
 
-        btnRegenerate.disabled = true;
-        regenLoading.classList.remove("hidden");
+            try {
+              var res = await fetch("/api/ai/parse-request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ description: description })
+              });
 
-        try {
-          var res = await fetch("/api/ai/parse-request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ description: lastDescription })
-          });
-          var data = await res.json();
-          if (res.ok) populateFromAI(data);
-        } catch (err) { /* silent */ }
-        finally {
-          btnRegenerate.disabled = false;
-          regenLoading.classList.add("hidden");
-        }
-      });
+              var data = await res.json();
 
-      /* ── Back to step 1 ── */
-      btnEdit.addEventListener("click", () => {
-        hideError(step2Error);
-        step2.classList.add("hidden");
-        step1.classList.remove("hidden");
-        step1.classList.remove("fade-in");
-        void step1.offsetWidth;
-        step1.classList.add("fade-in");
-      });
+              if (!res.ok) {
+                showError(step1Error, data.error || "Something went wrong. Please try again.");
+                return;
+              }
 
-      /* ── Submit ── */
-      btnSubmit.addEventListener("click", async () => {
-        hideError(step2Error);
-        btnSubmit.disabled = true;
-        btnSubmit.textContent = "Submitting...";
+              lastDescription = description;
+              populateFromAI(data);
 
-        var householdSize = parseInt($("householdSize").value, 10);
-        var dietaryRaw = $("dietaryNeeds").value;
-        var dietaryNeeds = dietaryRaw.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
-        var clientNotes = $("clientNotes").value.trim();
-        var staffNotes = $("staffNotes").textContent.trim();
-
-        if (!householdSize || householdSize < 1 || householdSize > 20) {
-          showError(step2Error, "Household size must be between 1 and 20.");
-          btnSubmit.disabled = false;
-          btnSubmit.textContent = "Submit request";
-          return;
-        }
-
-        try {
-          var res = await fetch("/api/requests", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ householdSize: householdSize, dietaryNeeds: dietaryNeeds, clientNotes: clientNotes, staffNotes: staffNotes })
+              step1.classList.add("hidden");
+              step2.classList.remove("hidden");
+              step2.classList.remove("fade-in");
+              void step2.offsetWidth;
+              step2.classList.add("fade-in");
+            } catch (err) {
+              showError(step1Error, "Network error. Please check your connection and try again.");
+            } finally {
+              btnPreview.disabled = false;
+              loadingMsg.classList.add("hidden");
+            }
           });
 
-          var data = await res.json();
+          /* ── Regenerate ── */
+          btnRegenerate.addEventListener("click", async () => {
+            if (!lastDescription) return;
+            if (!confirm("This will re-run the AI assistant and may overwrite your edits. Continue?")) return;
 
-          if (!res.ok) {
-            showError(step2Error, data.error || "Failed to submit request. Please try again.");
+            btnRegenerate.disabled = true;
+            regenLoading.classList.remove("hidden");
+
+            try {
+              var res = await fetch("/api/ai/parse-request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ description: lastDescription })
+              });
+              var data = await res.json();
+              if (res.ok) populateFromAI(data);
+            } catch (err) { /* silent */ }
+            finally {
+              btnRegenerate.disabled = false;
+              regenLoading.classList.add("hidden");
+            }
+          });
+
+          /* ── Back to step 1 ── */
+          btnEdit.addEventListener("click", () => {
+            hideError(step2Error);
+            step2.classList.add("hidden");
+            step1.classList.remove("hidden");
+            step1.classList.remove("fade-in");
+            void step1.offsetWidth;
+            step1.classList.add("fade-in");
+          });
+
+          /* ── Submit ── */
+          btnSubmit.addEventListener("click", async () => {
+            hideError(step2Error);
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Submitting...";
+
+            var householdSize = parseInt($("householdSize").value, 10);
+            var dietaryRaw = $("dietaryNeeds").value;
+            var dietaryNeeds = dietaryRaw.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length > 0; });
+            var clientNotes = $("clientNotes").value.trim();
+            var staffNotes = $("staffNotes").textContent.trim();
+
+            if (!householdSize || householdSize < 1 || householdSize > 20) {
+              showError(step2Error, "Household size must be between 1 and 20.");
+              btnSubmit.disabled = false;
+              btnSubmit.textContent = "Submit request";
+              return;
+            }
+
+            try {
+              var res = await fetch("/api/requests", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ householdSize: householdSize, dietaryNeeds: dietaryNeeds, clientNotes: clientNotes, staffNotes: staffNotes })
+              });
+
+              var data = await res.json();
+
+              if (!res.ok) {
+                showError(step2Error, data.error || "Failed to submit request. Please try again.");
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "Submit request";
+                return;
+              }
+
+              window.location.href = "/client/dashboard?submitted=1";
+            } catch (err) {
+              showError(step2Error, "Network error. Please check your connection and try again.");
+              btnSubmit.disabled = false;
+              btnSubmit.textContent = "Submit request";
+            }
+
+            window.location.href = "/client/dashboard?submitted=1";
+          } catch (err) {
+            showError(
+              submitError,
+              "Network error. Please check your connection and try again.",
+            );
             btnSubmit.disabled = false;
-            btnSubmit.textContent = "Submit request";
-            return;
           }
+    });
+        </script>
+</body>
 
-          window.location.href = "/client/dashboard?submitted=1";
-        } catch (err) {
-          showError(step2Error, "Network error. Please check your connection and try again.");
-          btnSubmit.disabled = false;
-          btnSubmit.textContent = "Submit request";
-        }
-      });
-    </script>
-  </body>
 </html>

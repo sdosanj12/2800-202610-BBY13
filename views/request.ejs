@@ -1,273 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Food Request — Food Bank Tracker</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<head>
+    <meta charset="UTF-8">
+    <title>Request Food | Food Bank Tracker</title>
+
+    <link rel="stylesheet" href="/style.css">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/request.css" />
-  </head>
-  <body>
-    <!-- Navbar — matches client-dashboard.css exactly -->
-    <!-- Note: /request is a public route so username isn't available here. -->
-    <!-- If you move this under /client/request and pass username, add it back. -->
-    <nav class="navbar">
-      <a href="/" class="nav-brand">Food Bank Tracker</a>
-      <ul class="nav-links">
-        <li><a href="/client/dashboard">Dashboard</a></li>
-        <li><a href="/request" class="nav-active">Request</a></li>
-        <li><a href="/logout" class="nav-logout">Logout</a></li>
-      </ul>
-    </nav>
+        href="https://fonts.googleapis.com/css2?family=Alan+Sans:wght@300..900&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&family=Lexend+Deca:wght@100..900&display=swap"
+        rel="stylesheet">
 
-    <main class="page-content">
-      <h1 class="page-heading">Food Request Form</h1>
-      <p class="page-sub">
-        Fill out the details below and we'll prepare your package. Fields marked
-        <span class="required">*</span> are required.
-      </p>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
 
-      <div class="form-card">
-        <!-- Banners -->
-        <div id="submit-success" class="submit-success">
-          Your request was submitted! Staff will review it and get back to you
-          soon.
-          <a href="/client/dashboard">Back to dashboard &rarr;</a>
-        </div>
-        <div id="submit-error" class="submit-error"></div>
+<body class="bg-light">
 
-        <form id="request-form" novalidate>
-          <!-- ── Household ── -->
-          <div class="form-section">
-            <p class="form-section-title">Household Info</p>
+    <header id="navbar-container">
+        <%- include('partials/navbar') %>
+    </header>
 
-            <div class="form-group">
-              <label class="form-label" for="household-size">
-                Household Size <span class="required">*</span>
-              </label>
-              <div class="select-wrapper">
-                <select
-                  class="form-select"
-                  id="household-size"
-                  name="householdSize"
-                >
-                  <option value="">Select size...</option>
-                  <option value="1">1 person</option>
-                  <option value="2">2 people</option>
-                  <option value="3">3 people</option>
-                  <option value="4">4 people</option>
-                  <option value="5">5 people</option>
-                  <option value="6">6 people</option>
-                  <option value="7">7 people</option>
-                  <option value="8">8+ people</option>
-                </select>
-              </div>
-              <p id="err-household" class="form-error">
-                Please select a household size.
-              </p>
-            </div>
-          </div>
+    <main class="container my-5">
+        <section class="card shadow-sm p-4 max-width-form mx-auto">
 
-          <!-- ── Dietary Needs ── -->
-          <div class="form-section">
-            <p class="form-section-title">Dietary Needs</p>
+            <h1 class="mb-2">Food Request Form</h1>
+            <p class="text-muted mb-4">Please fill out the details below to help us prepare your package accurately.</p>
 
-            <div class="form-group">
-              <label class="form-label">
-                Restrictions
-                <span class="optional">(select all that apply)</span>
-              </label>
-              <div class="checkbox-grid">
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="halal" />
-                  <span>Halal</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="vegan" />
-                  <span>Vegan / Vegetarian</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="gluten-free" />
-                  <span>Gluten-Free</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="dairy-free" />
-                  <span>Dairy-Free</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="nut-free" />
-                  <span>Nut-Free</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" name="diet" value="low-sodium" />
-                  <span>Low Sodium</span>
-                </label>
-              </div>
+            <form id="request-form" action="/requests/submit" method="POST">
 
-              <label class="form-label" style="margin-top: 1rem;">
-                Other restrictions
-                <span class="optional">(separate with commas)</span>
-              </label>
-              <input
-                class="form-input"
-                id="other-diet"
-                type="text"
-                placeholder="e.g. kosher, shellfish allergy, diabetic-friendly"
-                maxlength="200"
-              />
-            </div>
-          </div>
+                <!-- Household Size -->
+                <div class="mb-4">
+                    <label for="household-size" class="form-label fw-semibold">Household Size</label>
+                    <input type="number" id="household-size" name="householdSize" class="form-control" min="1" required>
+                    <div id="err-household" class="text-danger mt-1 d-none">Please enter household size.</div>
+                </div>
 
-          <!-- ── Notes ── -->
-          <div class="form-section">
-            <p class="form-section-title">Additional Info</p>
-            <div class="form-group">
-              <label class="form-label" for="notes">
-                Notes for staff
-                <span class="optional">(optional, max 500 characters)</span>
-              </label>
-              <textarea
-                class="form-textarea"
-                id="notes"
-                name="notes"
-                rows="3"
-                maxlength="500"
-                placeholder="Any extra details that might help us prepare your package..."
-              ></textarea>
-              <p
-                style="
-                  text-align: right;
-                  font-size: 0.75rem;
-                  color: #9ca3af;
-                  margin-top: 0.25rem;
-                "
-              >
-                <span id="notes-count">0</span>/500
-              </p>
-            </div>
-          </div>
+                <!-- Dietary Restrictions -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold d-block">Dietary Needs / Restrictions</label>
 
-          <!-- ── Actions ── -->
-          <div class="form-actions">
-            <button type="submit" id="btn-submit" class="btn-submit">
-              Submit Request
-            </button>
-            <button type="button" id="btn-clear" class="btn-clear">
-              Clear
-            </button>
-          </div>
-        </form>
-      </div>
+                    <div class="p-3 bg-white border rounded">
+                        <div class="form-check mb-2">
+                            <input type="checkbox" id="halal" name="diet" value="halal" class="form-check-input">
+                            <label for="halal" class="form-check-label">Halal</label>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input type="checkbox" id="vegan" name="diet" value="vegan" class="form-check-input">
+                            <label for="vegan" class="form-check-label">Vegan / Vegetarian</label>
+                        </div>
+
+                        <div class="form-check mb-2">
+                            <input type="checkbox" id="gluten-free" name="diet" value="gluten-free"
+                                class="form-check-input">
+                            <label for="gluten-free" class="form-check-label">Gluten-Free</label>
+                        </div>
+
+                        <div class="form-check">
+                            <input type="checkbox" id="dairy-free" name="diet" value="dairy-free"
+                                class="form-check-input">
+                            <label for="dairy-free" class="form-check-label">Dairy-Free</label>
+                        </div>
+                    </div>
+
+                    <label class="form-label mt-3">Other restrictions (comma separated)</label>
+                    <input type="text" id="other-diet" class="form-control"
+                        placeholder="e.g. kosher, shellfish allergy, diabetic-friendly" maxlength="200">
+
+                    <div class="form-text mt-2">
+                        <a href="/guidelines/dietary" target="_blank">View our dietary validation policy</a>
+                    </div>
+                </div>
+
+                <!-- Pickup Location -->
+                <div class="mb-4">
+                    <label for="location" class="form-label fw-semibold">Pickup Location (Vancouver, BC)</label>
+                    <select id="location" name="location" class="form-select" required>
+                        <option value="">Select a location...</option>
+                        <option value="east-van">East Vancouver Hub</option>
+                        <option value="kitsilano">Kitsilano Community Center</option>
+                        <option value="downtown">Downtown Eastside Annex</option>
+                    </select>
+                    <div class="form-text">
+                        <a href="/locations/info" target="_blank">View addresses and operation hours</a>
+                    </div>
+                </div>
+
+                <!-- Date + Time -->
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <label for="pickup-date" class="form-label fw-semibold">Preferred Pickup Date</label>
+                        <input type="date" id="pickup-date" name="pickupDate" class="form-select" required>
+                    </div>
+
+                    <div class="col-md-6 mb-4">
+                        <label for="pickup-time" class="form-label fw-semibold">Preferred Time Slot</label>
+                        <input type="time" id="pickup-time" name="pickupTime" class="form-select" required>
+                    </div>
+                </div>
+
+                <div class="form-text mb-4">
+                    <a href="/locations/availability" target="_blank">🔎 Check real-time traffic calendar</a>
+                </div>
+
+                <!-- Notes -->
+                <div class="mb-4">
+                    <label for="notes" class="form-label fw-semibold">Additional Notes</label>
+                    <textarea id="notes" class="form-control" maxlength="300" rows="3"></textarea>
+                    <div class="text-muted small mt-1">
+                        Characters: <span id="notes-count">0</span>/300
+                    </div>
+                </div>
+
+                <!-- Alerts -->
+                <div id="submit-error" class="alert alert-danger d-none"></div>
+                <div id="submit-success" class="alert alert-success d-none">Request submitted successfully!</div>
+
+                <hr class="my-4">
+
+                <!-- Buttons -->
+                <div class="d-flex gap-3 justify-content-end">
+                    <button type="button" id="btn-clear" class="btn btn-outline-secondary rounded-pill px-4">
+                        Clear Form
+                    </button>
+                    <button type="submit" id="btn-submit" class="btn btn-dark rounded-pill px-4">
+                        Submit Request
+                    </button>
+                </div>
+
+            </form>
+        </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="site-footer">
-      <span>&copy; 2026 Food Bank Tracker</span>
-      <div class="footer-links">
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="/contact">Contact Support</a>
-      </div>
+    <footer class="footer">
+        <div id="footer-container">
+            <%- include('partials/footer') %>
+        </div>
     </footer>
 
     <script>
-      function $(id) {
-        return document.getElementById(id);
-      }
+        const $ = (id) => document.getElementById(id);
 
-      /* ── Character counter ── */
-      $("notes").addEventListener("input", function () {
-        $("notes-count").textContent = this.value.length;
-      });
+        /* Character counter */
+        $("notes").addEventListener("input", () => {
+            $("notes-count").textContent = $("notes").value.length;
+        });
 
-      /* ── Validation ── */
-      function showErr(id, show) {
-        const el = $(id);
-        if (el) el.classList.toggle("visible", show);
-      }
-
-      function validate() {
-        let valid = true;
-        const household = $("household-size").value;
-        showErr("err-household", !household);
-        if (!household) valid = false;
-        return valid;
-      }
-
-      /* ── Form submit — POST /api/requests ── */
-      $("request-form").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        $("submit-error").classList.remove("visible");
-        $("submit-success").classList.remove("visible");
-
-        if (!validate()) return;
-
-        const dietaryNeeds = [
-          ...document.querySelectorAll('input[name="diet"]:checked'),
-        ].map((cb) => cb.value);
-
-        const otherDiet = $("other-diet").value.trim();
-        if (otherDiet) {
-          otherDiet.split(",").forEach((s) => {
-            const v = s.trim();
-            if (v.length > 0) dietaryNeeds.push(v);
-          });
+        /* Validation */
+        function showErr(id, show) {
+            const el = $(id);
+            if (el) el.classList.toggle("d-none", !show);
         }
 
-        const payload = {
-          householdSize: parseInt($("household-size").value, 10),
-          dietaryNeeds,
-          notes: $("notes").value.trim(),
-        };
-
-        const btn = $("btn-submit");
-        btn.disabled = true;
-        btn.textContent = "Submitting…";
-
-        try {
-          const res = await fetch("/api/requests", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(payload),
-          });
-          const data = await res.json();
-
-          if (!res.ok) {
-            $("submit-error").textContent =
-              data.error || "Something went wrong. Please try again.";
-            $("submit-error").classList.add("visible");
-            return;
-          }
-
-          $("submit-success").classList.add("visible");
-          $("request-form").reset();
-          $("notes-count").textContent = "0";
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        } catch (err) {
-          $("submit-error").textContent =
-            "Network error. Please check your connection and try again.";
-          $("submit-error").classList.add("visible");
-        } finally {
-          btn.disabled = false;
-          btn.textContent = "Submit Request";
+        function validate() {
+            let valid = true;
+            const household = $("household-size").value;
+            showErr("err-household", !household);
+            if (!household) valid = false;
+            return valid;
         }
-      });
 
-      /* ── Clear button ── */
-      $("btn-clear").addEventListener("click", () => {
-        $("request-form").reset();
-        $("notes-count").textContent = "0";
-        showErr("err-household", false);
-        $("submit-error").classList.remove("visible");
-        $("submit-success").classList.remove("visible");
-      });
+        /* Submit handler */
+        $("request-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            $("submit-error").classList.add("d-none");
+            $("submit-success").classList.add("d-none");
+
+            if (!validate()) return;
+
+            const dietaryNeeds = [...document.querySelectorAll('input[name="diet"]:checked')]
+                .map(cb => cb.value);
+
+            const otherDiet = $("other-diet").value.trim();
+            if (otherDiet) {
+                otherDiet.split(",").forEach(v => {
+                    v = v.trim();
+                    if (v) dietaryNeeds.push(v);
+                });
+            }
+
+            const payload = {
+                householdSize: parseInt($("household-size").value, 10),
+                dietaryNeeds,
+                notes: $("notes").value.trim(),
+                location: $("location").value,
+                pickupDate: $("pickup-date").value,
+                pickupTime: $("pickup-time").value
+            };
+
+            const btn = $("btn-submit");
+            btn.disabled = true;
+            btn.textContent = "Submitting…";
+
+            try {
+                const res = await fetch("/api/requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    $("submit-error").textContent = data.error || "Something went wrong.";
+                    $("submit-error").classList.remove("d-none");
+                    return;
+                }
+
+                $("submit-success").classList.remove("d-none");
+                $("request-form").reset();
+                $("notes-count").textContent = "0";
+                window.scrollTo({ top: 0, behavior: "smooth" });
+
+            } catch (err) {
+                $("submit-error").textContent = "Network error. Please try again.";
+                $("submit-error").classList.remove("d-none");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Submit Request";
+            }
+        });
+
+        /* Clear button */
+        $("btn-clear").addEventListener("click", () => {
+            $("request-form").reset();
+            $("notes-count").textContent = "0";
+            showErr("err-household", false);
+            $("submit-error").classList.add("d-none");
+            $("submit-success").classList.add("d-none");
+        });
     </script>
-  </body>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
 </html>

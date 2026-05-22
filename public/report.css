@@ -1,0 +1,120 @@
+.report-section {
+  padding: 20px 0;
+  width: 100% !important;
+}
+
+.report-section h1 {
+  color: #2e7d32;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+
+.card {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.card-title {
+  color: #333;
+  font-weight: 600;
+}
+
+/* Chart Canvas Wrapper Box */
+.chart-container {
+  padding: 10px;
+  width: 100% !important;
+}
+
+.table-responsive {
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100% !important;
+}
+
+#dataTable {
+  margin-bottom: 0;
+  width: 100% !important;
+}
+
+#dataTable thead th {
+  background-color: #2e7d32 !important;
+  color: white !important;
+  font-weight: 600;
+  border: none;
+  padding: 16px 20px;
+}
+
+#dataTable tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+#dataTable tbody tr:hover {
+  background-color: rgba(46, 125, 50, 0.05) !important;
+}
+
+#dataTable th,
+#dataTable td {
+  padding: 14px 20px;
+  vertical-align: middle;
+}
+
+#dataTable tbody th {
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+@media (max-width: 768px) {
+  .report-section h1 {
+    font-size: 1.75rem;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+  }
+
+  .chart-container {
+    height: 250px !important;
+  }
+}
+
+.shadow-sm {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.py-4 {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+.mb-4 {
+  margin-bottom: 2rem !important;
+}
+
+.mb-3 {
+  margin-bottom: 1rem !important;
+}
+
+@media print {
+  .card {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  #navbar-container,
+  .footer,
+  .mt-auto {
+    display: none !important;
+  }
+}
