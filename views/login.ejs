@@ -77,35 +77,18 @@
           <div class="server-error" role="alert">
             <%= error %>
           </div>
-
-          <!--  Remember Me + Forgot Password  -->
-          <div class="form-extras">
-            <label class="checkbox-label">
-              <input type="checkbox" name="rememberMe" id="rememberMe" />
-              <span class="checkbox-custom"></span>
-              Remember me
-            </label>
-            <a href="#" class="link-subtle">Forgot password?</a>
-          </div>
-
-          <!--  Submit  -->
-          <button type="submit" class="btn-submit" id="submitBtn">
-            <span class="btn-text">Login</span>
-            <span class="btn-spinner" aria-hidden="true"></span>
-          </button>
-
-          <!-- Server-side Error Banner  -->
-          <% if (typeof error !=='undefined' && error) { %>
-            <div class="server-error" role="alert">
-              <%= error %>
-            </div>
-            <% } %>
+        <% } %>
 
       </form>
 
       <p class="card-footer-text">
         Don't have an account?
         <a href="/signup" class="link-accent">Create one</a>
+      </p>
+
+      <p class="card-footer-text" style="margin-top: 0.5rem;">
+        Staff member?
+        <a href="/admin/login" class="link-accent">Employee Portal</a>
       </p>
 
     </div>
@@ -129,7 +112,7 @@
       el.style.display = "block";
     }
 
-    // clear error 
+    // clear error
     function clearError(groupId, errorId) {
       document.getElementById(groupId).classList.remove("has-error");
       const el = document.getElementById(errorId);
@@ -144,7 +127,7 @@
       const username = document.getElementById("username").value.trim();
       const password = document.getElementById("password").value;
 
-      // Username: min 3, max 20 
+      // Username: min 3, max 20
       if (username === "") {
         showError("group-username", "username-error", "Username is required.");
         isValid = false;
@@ -158,7 +141,7 @@
         clearError("group-username", "username-error");
       }
 
-      //  Password: required 
+      //  Password: required
       if (password === "") {
         showError("group-password", "password-error", "Password is required.");
         isValid = false;
@@ -182,14 +165,14 @@
       }
     });
 
-    //  clear errors as user types 
+    //  clear errors as user types
     document.getElementById("username").addEventListener("input", () =>
       clearError("group-username", "username-error"));
 
     document.getElementById("password").addEventListener("input", () =>
       clearError("group-password", "password-error"));
 
-    //  Toggle password visibility 
+    //  Toggle password visibility
     document.getElementById("togglePassword").addEventListener("click", function () {
       const input = document.getElementById("password");
       const icon = document.getElementById("eyeIcon");
