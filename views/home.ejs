@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home — Food Bank Tracker</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/client-dashboard.css" />
+  </head>
+  <body>
+    <%- include('partials/navbar') %>
+
+    <main class="page-content" style="text-align:center; padding-top:4rem;">
+      <h1 class="welcome-heading">Welcome back, <%= username %></h1>
+      <p class="welcome-sub" style="margin-bottom:2rem;">
+        We're glad to have you here. Head to your dashboard to get started.
+      </p>
+      <a
+        href="/<%= role %>/dashboard"
+        style="
+          display: inline-block;
+          background: #1a3a5c;
+          color: #fff;
+          font-weight: 600;
+          font-size: 0.9375rem;
+          padding: 0.75rem 2rem;
+          border-radius: 999px;
+          text-decoration: none;
+          transition: background 0.15s ease;
+        "
+        onmouseover="this.style.background='#142d47'"
+        onmouseout="this.style.background='#1a3a5c'"
+      >Go to Dashboard</a>
+    </main>
+
+    <%- include('partials/footer') %>
+  </body>
+</html>
