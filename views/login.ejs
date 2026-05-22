@@ -77,7 +77,29 @@
           <div class="server-error" role="alert">
             <%= error %>
           </div>
-          <% } %>
+
+          <!--  Remember Me + Forgot Password  -->
+          <div class="form-extras">
+            <label class="checkbox-label">
+              <input type="checkbox" name="rememberMe" id="rememberMe" />
+              <span class="checkbox-custom"></span>
+              Remember me
+            </label>
+            <a href="#" class="link-subtle">Forgot password?</a>
+          </div>
+
+          <!--  Submit  -->
+          <button type="submit" class="btn-submit" id="submitBtn">
+            <span class="btn-text">Login</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+
+          <!-- Server-side Error Banner  -->
+          <% if (typeof error !=='undefined' && error) { %>
+            <div class="server-error" role="alert">
+              <%= error %>
+            </div>
+            <% } %>
 
       </form>
 

@@ -66,8 +66,21 @@
 
 <body>
 
-  <header id="navbar-container">
-    <%- include('partials/navbar') %>
+  <header>
+    <nav class="navbar">
+      <a href="/" class="nav-brand">Food Bank Tracker</a>
+      <ul class="nav-links">
+        <% if (locals.user) { %>
+          <li><a
+              href="/<%= user.roles && user.roles.includes('volunteer') ? 'volunteer' : user.roles && user.roles.includes('admin') ? 'admin' : 'client' %>/dashboard">Dashboard</a>
+          </li>
+          <li><a href="/logout" class="nav-logout">Logout</a></li>
+          <% } else { %>
+            <li><a href="/login">Login</a></li>
+            <li><a href="/signup">Sign Up</a></li>
+            <% } %>
+      </ul>
+    </nav>
   </header>
 
   <main>
@@ -80,7 +93,7 @@
             allocations efficiently.</p>
           <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mb-5">
             <a href="/login" class="btn btn-brand-primary btn-lg px-4 me-sm-3 fw-medium">Login</a>
-            <a href="/register" class="btn btn-outline-secondary btn-lg px-4 fw-medium">Sign Up</a>
+            <a href="/signup" class="btn btn-outline-secondary btn-lg px-4 fw-medium">Sign Up</a>
           </div>
         </div>
         <div class="container px-5">
@@ -98,7 +111,7 @@
             Designed directly for community distribution networks to reduce logistics overhead, eliminate manual
             spreadsheets, and ensure real-time stock clarity.
           </p>
-          <a href="/register" class="btn btn-brand-primary btn-lg px-4 mt-2 fw-medium">Get Started Free</a>
+          <a href="/signup" class="btn btn-brand-primary btn-lg px-4 mt-2 fw-medium">Get Started Free</a>
         </div>
 
         <div class="col">
@@ -160,7 +173,7 @@
           <p class="lead text-muted mb-4">Join our mission to fight food insecurity and support localized resource
             tracking networks.</p>
           <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/register" class="btn btn-brand-primary btn-lg px-5 fw-medium">Sign Up Now</a>
+            <a href="/signup" class="btn btn-brand-primary btn-lg px-5 fw-medium">Sign Up Now</a>
           </div>
         </div>
       </div>

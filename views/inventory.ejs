@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory - Food Bank Tracker</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="/style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+        }
+
+        .dashboard-card {
+            background: #ffffff;
+            border: 1px solid var(--color-card-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            margin-bottom: var(--space-xl);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .table th {
+            font-weight: 600;
+            color: var(--color-text);
+            border-bottom: 2px solid var(--color-card-border);
+            padding: 0.75rem var(--space-md);
+        }
+
+        .table td {
+            padding: 0.85rem var(--space-md);
+            vertical-align: middle;
+            color: var(--color-text);
+        }
+
+        .btn-search {
+            background-color: var(--color-navy);
+            color: white;
+            border: none;
+            transition: background var(--transition);
+        }
+
+        .btn-search:hover {
+            background-color: var(--color-navy-dark);
+            color: white;
+        }
+
+        .text-muted-custom {
+            color: var(--color-muted);
+            font-size: 0.9375rem;
+            margin-bottom: var(--space-lg);
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: var(--space-xs);
+        }
+
+        .badge-low {
+            background-color: #fef3c7;
+            color: #d97706;
+            font-weight: 600;
+        }
+
+        .badge-out {
+            background-color: #fee2e2;
+            color: #dc2626;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <header id="navbar-container">
+        <%- include('partials/navbar') %>
+    </header>
+
+    <main class="container my-5">
+
+        <div class="row align-items-center justify-content-between mb-4 gy-3">
+            <div class="col-12 col-md-6">
+                <h1 class="section-title h2">Inventory Management</h1>
+                <p class="text-muted-custom m-0">Welcome to the Food Bank Tracker Inventory! Track, review, and organize
+                    available stock counts.</p>
+            </div>
+            <div class="col-12 col-md-6">
+                <form class="d-flex gap-2 justify-content-md-end" role="search" method="GET" action="/inventory">
+                    <input class="form-control" type="search" name="search" placeholder="Search items..."
+                        aria-label="Search items" style="max-width: 300px; border-radius: var(--radius-md);" />
+                    <button class="btn btn-search px-4" type="submit"
+                        style="border-radius: var(--radius-md);">Search</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="table-responsive">
+                <table class="table align-middle m-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Storage Location</th>
+                            <th scope="col">Expiry Date</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (items && items.length> 0) { %>
+                            <% items.forEach(item=> { %>
+                                <%- include("partials/inventoryRow", { item }) %>
+                                    <% }) %>
+                                        <% } else { %>
+                                            <tr>
+                                                <td colspan="5" class="text-center py-4 text-muted">No matching records
+                                                    found in stock.</td>
+                                            </tr>
+                                            <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row g-4">
+
+            <div class="col-12 col-lg-6">
+                <div class="dashboard-card h-100">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <h2 class="h5 m-0 section-title">Low Stock Items</h2>
+                        <span class="badge badge-low rounded-pill">
+                            <%= lowStockItems.length %>
+                        </span>
+                    </div>
+                    <p class="text-muted-custom small">These inventory rows are running lower than threshold levels.
+                        Restock soon.</p>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle m-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Qty</th>
+                                    <th scope="col">Location</th>
+                                    <th scope="col">Expiry</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (lowStockItems && lowStockItems.length> 0) { %>
+                                    <% lowStockItems.forEach(item=> { %>
+                                        <%- include("partials/lowStockRow", { item }) %>
+                                            <% }) %>
+                                                <% } else { %>
+                                                    <tr>
+                                                        <td colspan="4" class="text-center py-3 text-muted small">All
+                                                            items are sufficiently stocked.</td>
+                                                    </tr>
+                                                    <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+                <div class="dashboard-card h-100">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <h2 class="h5 m-0 section-title">Out of Stock</h2>
+                        <span class="badge badge-out rounded-pill">
+                            <%= outOfStockItems.length %>
+                        </span>
+                    </div>
+                    <p class="text-muted-custom small">These products have hit critical zero limits and need ordering
+                        immediately.</p>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle m-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Storage Location</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (outOfStockItems && outOfStockItems.length> 0) { %>
+                                    <% outOfStockItems.forEach(item=> { %>
+                                        <%- include("partials/outOfStockRow", { item }) %>
+                                            <% }) %>
+                                                <% } else { %>
+                                                    <tr>
+                                                        <td colspan="2" class="text-center py-3 text-muted small">No
+                                                            items are currently depleted.</td>
+                                                    </tr>
+                                                    <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="footer mt-auto">
+        <%- include('partials/footer') %>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+
+</html>
