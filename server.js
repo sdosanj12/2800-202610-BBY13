@@ -216,6 +216,14 @@ app.use((req, res, next) => {
 /* === Public routes === */
 
 app.get("/", (req, res) => {
+  if (isValidSession(req)) {
+    const role = req.user.roles.includes("volunteer")
+      ? "volunteer"
+      : req.user.roles.includes("admin")
+        ? "admin"
+        : "client";
+    return res.render("home", { username: req.user.username, role });
+  }
   res.render("index");
 });
 

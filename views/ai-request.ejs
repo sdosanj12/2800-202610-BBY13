@@ -3,302 +3,303 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Request Assistant — Food Bank Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Smart Request — Food Bank Tracker</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/request.css" />
     <style>
+      /* AI-request specific additions */
       @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
       }
-      .fade-in {
-        animation: fadeIn 0.35s ease-out;
+      .fade-in { animation: fadeIn 0.35s ease-out; }
+      @keyframes pulseOpacity {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
       }
-      @keyframes pulse-opacity {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
+      .pulse-loading { animation: pulseOpacity 1.5s ease-in-out infinite; }
+      .hidden { display: none !important; }
+
+      .confidence-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.2rem 0.6rem;
+        border-radius: 999px;
       }
-      .pulse-loading {
-        animation: pulse-opacity 1.5s ease-in-out infinite;
+      .confidence-high { background: #ecfdf5; color: #065f46; }
+      .confidence-medium { background: #fffbeb; color: #92400e; }
+      .confidence-low { background: #fef2f2; color: #991b1b; }
+
+      .warnings-banner {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: var(--radius-md);
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.25rem;
       }
+      .warnings-banner p { font-size: 0.8rem; font-weight: 600; color: #92400e; margin-bottom: 0.4rem; }
+      .warnings-banner ul { list-style: disc inside; font-size: 0.8rem; color: #b45309; }
+      .warnings-banner li { margin-bottom: 0.2rem; }
+
+      .ai-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: #f3e8ff;
+        color: #7c3aed;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+      }
+
+      .staff-notes-box {
+        width: 100%;
+        border: 1px solid var(--color-card-border);
+        background: var(--color-bg);
+        border-radius: var(--radius-md);
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+        color: var(--color-text);
+        white-space: pre-wrap;
+        min-height: 60px;
+      }
+
+      .link-btn {
+        background: none;
+        border: none;
+        color: var(--color-navy);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
+        margin-top: 0.5rem;
+      }
+      .link-btn:hover { color: var(--color-navy-dark); }
+      .link-btn:disabled { color: var(--color-muted); cursor: not-allowed; }
+
+      .loading-text {
+        font-size: 0.8rem;
+        color: var(--color-muted);
+        margin-top: 0.5rem;
+      }
+
+      .char-counter {
+        text-align: right;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        margin-top: 0.25rem;
+      }
+      .char-counter.valid { color: #059669; }
+      .char-counter.over { color: var(--color-error-text); }
     </style>
   </head>
-  <body
-    class="bg-stone-50 min-h-screen flex items-center justify-center px-4 py-10"
-  >
-    <div class="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-8 sm:p-10">
-      <!-- Step 1: Description input -->
-      <div id="step-1" class="fade-in">
-        <h1 class="text-2xl font-bold text-slate-900 mb-2">
-          Tell us about your household
-        </h1>
-        <p class="text-slate-600 leading-relaxed mb-6">
-          Describe your household and any dietary needs in your own words. Our
-          assistant will help fill out the request form — you'll review
-          everything before submitting.
-        </p>
+  <body>
+    <%- include('partials/navbar') %>
 
-        <label
-          for="description"
-          class="block text-sm font-medium text-slate-700 mb-1"
-          >Your description</label
-        >
-        <textarea
-          id="description"
-          rows="6"
-          maxlength="2000"
-          class="w-full border border-slate-300 rounded-lg p-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
-          placeholder="Example: I have 2 young kids and my mom lives with us. My daughter has a peanut allergy and we don't eat pork."
-          aria-describedby="char-count"
-        ></textarea>
-        <div id="char-count" class="text-right text-sm text-slate-400 mt-1">
-          <span id="char-current">0</span> / 2000
+    <main class="page-content">
+      <h1 class="page-heading">Smart Request Assistant</h1>
+      <p class="page-sub">
+        Describe your household in plain English — AI fills the form for you. You'll review everything before submitting.
+      </p>
+
+      <div class="form-card">
+        <!-- Banners -->
+        <div id="submit-success" class="submit-success">
+          Your request was submitted! Staff will review it and get back to you soon.
+          <a href="/client/dashboard">Back to dashboard &rarr;</a>
         </div>
+        <div id="submit-error" class="submit-error"></div>
 
-        <div
-          id="error-msg"
-          class="text-red-600 text-sm mt-3 hidden"
-          role="alert"
-        ></div>
+        <!-- ═══ STEP 1: Description ═══ -->
+        <div id="step-1" class="fade-in">
+          <div class="form-section">
+            <p class="form-section-title">Describe Your Household</p>
 
-        <div
-          id="loading-msg"
-          class="text-slate-500 text-sm mt-3 hidden pulse-loading"
-          aria-live="polite"
-        >
-          Assistant is reviewing your description...
-        </div>
-
-        <button
-          id="btn-preview"
-          type="button"
-          class="mt-5 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white rounded-full py-3 px-6 font-medium transition-colors"
-        >
-          Preview my request
-        </button>
-
-        <div class="text-center mt-4">
-          <a
-            href="/client/dashboard"
-            class="text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors"
-            >Back to dashboard</a
-          >
-        </div>
-      </div>
-
-      <!-- Step 2: Review parsed result -->
-      <div id="step-2" class="fade-in hidden">
-        <div class="flex items-start justify-between mb-4">
-          <h2 class="text-2xl font-bold text-slate-900">Review your request</h2>
-          <span
-            id="confidence-badge"
-            class="inline-block text-xs font-semibold uppercase px-3 py-1 rounded-full"
-          ></span>
-        </div>
-
-        <!-- Warnings banner -->
-        <div
-          id="warnings-banner"
-          class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 hidden"
-        >
-          <p class="text-amber-800 font-semibold text-sm mb-2">
-            Heads up from the assistant:
-          </p>
-          <ul
-            id="warnings-list"
-            class="list-disc list-inside text-amber-700 text-sm space-y-1"
-          ></ul>
-        </div>
-
-        <!-- Editable fields -->
-        <div class="space-y-5">
-          <div>
-            <label
-              for="householdSize"
-              class="block text-sm font-medium text-slate-700 mb-1"
-              >Household size</label
-            >
-            <input
-              id="householdSize"
-              type="number"
-              min="1"
-              max="20"
-              class="w-full border border-slate-300 rounded-lg p-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              aria-label="Number of people in household"
-            />
+            <div class="form-group">
+              <label class="form-label" for="description">
+                Your description <span class="required">*</span>
+              </label>
+              <textarea
+                class="form-textarea"
+                id="description"
+                rows="6"
+                maxlength="2000"
+                placeholder="Example: I have 2 young kids and my mom lives with us. My daughter has a peanut allergy and we don't eat pork."
+              ></textarea>
+              <p class="char-counter">
+                <span id="char-current">0</span> / 2000
+              </p>
+              <p id="step1-error" class="form-error"></p>
+              <p id="loading-msg" class="loading-text hidden pulse-loading">
+                Assistant is reviewing your description...
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label
-              for="dietaryNeeds"
-              class="block text-sm font-medium text-slate-700 mb-1"
-              >Dietary needs
-              <span class="text-slate-400 font-normal"
-                >(comma-separated)</span
-              ></label
-            >
-            <input
-              id="dietaryNeeds"
-              type="text"
-              class="w-full border border-slate-300 rounded-lg p-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="e.g. vegetarian, peanut allergy, halal"
-              aria-label="Dietary needs separated by commas"
-            />
+          <div class="form-actions">
+            <button type="button" id="btn-preview" class="btn-submit">
+              Preview my request
+            </button>
+            <a href="/client/dashboard" class="btn-clear" style="text-align:center; text-decoration:none;">
+              Back to dashboard
+            </a>
           </div>
+        </div>
 
-          <div>
-            <label
-              for="clientNotes"
-              class="block text-sm font-medium text-slate-700 mb-1"
-              >Your notes for staff</label
-            >
-            <textarea
-              id="clientNotes"
-              rows="3"
-              maxlength="500"
-              class="w-full border border-slate-300 rounded-lg p-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
-              aria-label="Your personal notes for food bank staff"
-            ></textarea>
-          </div>
+        <!-- ═══ STEP 2: Review ═══ -->
+        <div id="step-2" class="hidden fade-in">
+          <div class="form-section">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+              <p class="form-section-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Review Your Request</p>
+              <span id="confidence-badge" class="confidence-badge"></span>
+            </div>
 
-          <div>
-            <div class="flex items-center gap-2 mb-1">
-              <label class="block text-sm font-medium text-slate-700"
-                >Intake summary (auto-generated)</label
-              >
-              <span
-                class="inline-flex items-center gap-1 text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full"
-              >
-                <span aria-hidden="true">&#10024;</span> AI Generated
+            <!-- Warnings -->
+            <div id="warnings-banner" class="warnings-banner hidden">
+              <p>Heads up from the assistant:</p>
+              <ul id="warnings-list"></ul>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="householdSize">
+                Household Size <span class="required">*</span>
+              </label>
+              <input
+                class="form-input"
+                id="householdSize"
+                type="number"
+                min="1"
+                max="20"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="dietaryNeeds">
+                Dietary Needs <span class="optional">(comma-separated)</span>
+              </label>
+              <input
+                class="form-input"
+                id="dietaryNeeds"
+                type="text"
+                placeholder="e.g. vegetarian, peanut allergy, halal"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="clientNotes">
+                Your notes for staff <span class="optional">(optional)</span>
+              </label>
+              <textarea
+                class="form-textarea"
+                id="clientNotes"
+                rows="3"
+                maxlength="500"
+                placeholder="Any extra details..."
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.375rem;">
+                <label class="form-label" style="margin-bottom:0;">Intake summary</label>
+                <span class="ai-badge">&#10024; AI Generated</span>
+              </div>
+              <div class="staff-notes-box" id="staffNotes"></div>
+              <p style="font-size:0.75rem; color:var(--color-muted); margin-top:0.25rem;">
+                Generated by AI to help staff prepare your request.
+              </p>
+              <button type="button" id="btn-regenerate" class="link-btn">
+                Regenerate intake summary
+              </button>
+              <span id="regen-loading" class="loading-text hidden pulse-loading" style="display:inline; margin-left:0.5rem;">
+                Regenerating...
               </span>
             </div>
-            <div
-              id="staffNotes"
-              class="w-full border border-slate-200 bg-slate-50 rounded-lg p-3 text-slate-700 text-sm whitespace-pre-wrap min-h-[60px]"
-              aria-label="AI-generated intake summary for staff"
-            ></div>
-            <p class="text-xs text-slate-400 mt-1">
-              Generated by AI to help staff prepare your request.
-            </p>
-            <button
-              id="btn-regenerate"
-              type="button"
-              class="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium underline underline-offset-2 disabled:text-blue-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Regenerate intake summary
+          </div>
+
+          <div id="step2-error" class="submit-error"></div>
+
+          <div class="form-actions">
+            <button type="button" id="btn-submit" class="btn-submit">
+              Submit request
             </button>
-            <span
-              id="regen-loading"
-              class="text-slate-500 text-sm ml-2 hidden pulse-loading"
-              aria-live="polite"
-              >Regenerating...</span
-            >
+            <button type="button" id="btn-edit" class="btn-clear">
+              Edit description
+            </button>
           </div>
         </div>
-
-        <div
-          id="submit-error"
-          class="text-red-600 text-sm mt-3 hidden"
-          role="alert"
-        ></div>
-
-        <div class="flex gap-3 mt-6">
-          <button
-            id="btn-edit"
-            type="button"
-            class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-full py-3 px-6 font-medium transition-colors"
-          >
-            Edit description
-          </button>
-          <button
-            id="btn-submit"
-            type="button"
-            class="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 disabled:cursor-not-allowed text-white rounded-full py-3 px-6 font-medium transition-colors"
-          >
-            Submit request
-          </button>
-        </div>
       </div>
-    </div>
+    </main>
+
+    <%- include('partials/footer') %>
 
     <script>
-      const descEl = document.getElementById("description");
-      const charCurrent = document.getElementById("char-current");
-      const charCount = document.getElementById("char-count");
-      const btnPreview = document.getElementById("btn-preview");
-      const btnEdit = document.getElementById("btn-edit");
-      const btnSubmit = document.getElementById("btn-submit");
-      const btnRegenerate = document.getElementById("btn-regenerate");
-      const regenLoading = document.getElementById("regen-loading");
-      const step1 = document.getElementById("step-1");
-      const step2 = document.getElementById("step-2");
-      const errorMsg = document.getElementById("error-msg");
-      const loadingMsg = document.getElementById("loading-msg");
-      const submitError = document.getElementById("submit-error");
+      function $(id) { return document.getElementById(id); }
+
+      const descEl = $("description");
+      const charCurrent = $("char-current");
+      const charCounter = descEl.closest(".form-group").querySelector(".char-counter");
+      const btnPreview = $("btn-preview");
+      const btnEdit = $("btn-edit");
+      const btnSubmit = $("btn-submit");
+      const btnRegenerate = $("btn-regenerate");
+      const regenLoading = $("regen-loading");
+      const step1 = $("step-1");
+      const step2 = $("step-2");
+      const step1Error = $("step1-error");
+      const loadingMsg = $("loading-msg");
+      const step2Error = $("step2-error");
 
       let lastDescription = "";
 
-      // Character counter
+      /* ── Character counter ── */
       descEl.addEventListener("input", () => {
         const len = descEl.value.length;
         charCurrent.textContent = len;
-        if (len < 10) {
-          charCount.className = "text-right text-sm text-slate-400 mt-1";
-        } else if (len > 2000) {
-          charCount.className = "text-right text-sm text-red-500 mt-1";
-        } else {
-          charCount.className = "text-right text-sm text-emerald-600 mt-1";
-        }
+        charCounter.classList.remove("valid", "over");
+        if (len >= 10 && len <= 2000) charCounter.classList.add("valid");
+        else if (len > 2000) charCounter.classList.add("over");
       });
 
       function showError(el, msg) {
         el.textContent = msg;
+        el.classList.add("visible");
         el.classList.remove("hidden");
       }
 
       function hideError(el) {
         el.textContent = "";
-        el.classList.add("hidden");
+        el.classList.remove("visible");
       }
 
       function populateFromAI(data) {
-        document.getElementById("householdSize").value =
-          data.parsed.householdSize;
-        document.getElementById("dietaryNeeds").value = (
-          data.parsed.dietaryNeeds || []
-        ).join(", ");
-        document.getElementById("clientNotes").value =
-          data.parsed.clientNotes || "";
-        document.getElementById("staffNotes").textContent =
-          data.parsed.staffNotes || "";
+        $("householdSize").value = data.parsed.householdSize;
+        $("dietaryNeeds").value = (data.parsed.dietaryNeeds || []).join(", ");
+        $("clientNotes").value = data.parsed.clientNotes || "";
+        $("staffNotes").textContent = data.parsed.staffNotes || "";
 
         // Confidence badge
-        const badge = document.getElementById("confidence-badge");
+        const badge = $("confidence-badge");
         badge.textContent = data.parsed.confidence;
-        const badgeColors = {
-          high: "bg-emerald-100 text-emerald-800",
-          medium: "bg-amber-100 text-amber-800",
-          low: "bg-red-100 text-red-800",
-        };
-        badge.className = `inline-block text-xs font-semibold uppercase px-3 py-1 rounded-full ${badgeColors[data.parsed.confidence] || badgeColors.medium}`;
+        badge.className = "confidence-badge confidence-" + (data.parsed.confidence || "medium");
 
         // Warnings
-        const warningsBanner = document.getElementById("warnings-banner");
-        const warningsList = document.getElementById("warnings-list");
+        const warningsBanner = $("warnings-banner");
+        const warningsList = $("warnings-list");
         warningsList.innerHTML = "";
         if (data.parsed.warnings && data.parsed.warnings.length > 0) {
-          data.parsed.warnings.forEach((w) => {
-            const li = document.createElement("li");
+          data.parsed.warnings.forEach(function(w) {
+            var li = document.createElement("li");
             li.textContent = w;
             warningsList.appendChild(li);
           });
@@ -308,23 +309,17 @@
         }
       }
 
-      // Step 1 → Preview
+      /* ── Step 1 → Preview ── */
       btnPreview.addEventListener("click", async () => {
-        hideError(errorMsg);
-        const description = descEl.value.trim();
+        hideError(step1Error);
+        var description = descEl.value.trim();
 
         if (description.length < 10) {
-          showError(
-            errorMsg,
-            "Please write at least 10 characters describing your household.",
-          );
+          showError(step1Error, "Please write at least 10 characters describing your household.");
           return;
         }
         if (description.length > 2000) {
-          showError(
-            errorMsg,
-            "Description is too long. Please keep it under 2000 characters.",
-          );
+          showError(step1Error, "Description is too long. Please keep it under 2000 characters.");
           return;
         }
 
@@ -332,79 +327,63 @@
         loadingMsg.classList.remove("hidden");
 
         try {
-          const res = await fetch("/api/ai/parse-request", {
+          var res = await fetch("/api/ai/parse-request", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ description }),
+            body: JSON.stringify({ description: description })
           });
 
-          const data = await res.json();
+          var data = await res.json();
 
           if (!res.ok) {
-            showError(
-              errorMsg,
-              data.error || "Something went wrong. Please try again.",
-            );
+            showError(step1Error, data.error || "Something went wrong. Please try again.");
             return;
           }
 
           lastDescription = description;
           populateFromAI(data);
 
-          // Show step 2
           step1.classList.add("hidden");
           step2.classList.remove("hidden");
           step2.classList.remove("fade-in");
           void step2.offsetWidth;
           step2.classList.add("fade-in");
         } catch (err) {
-          showError(
-            errorMsg,
-            "Network error. Please check your connection and try again.",
-          );
+          showError(step1Error, "Network error. Please check your connection and try again.");
         } finally {
           btnPreview.disabled = false;
           loadingMsg.classList.add("hidden");
         }
       });
 
-      // Regenerate staffNotes
+      /* ── Regenerate ── */
       btnRegenerate.addEventListener("click", async () => {
         if (!lastDescription) return;
-        if (
-          !confirm(
-            "This will re-run the AI assistant and may overwrite your edits. Continue?",
-          )
-        )
-          return;
+        if (!confirm("This will re-run the AI assistant and may overwrite your edits. Continue?")) return;
 
         btnRegenerate.disabled = true;
         regenLoading.classList.remove("hidden");
 
         try {
-          const res = await fetch("/api/ai/parse-request", {
+          var res = await fetch("/api/ai/parse-request", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ description: lastDescription }),
+            body: JSON.stringify({ description: lastDescription })
           });
-
-          const data = await res.json();
-          if (res.ok) {
-            populateFromAI(data);
-          }
-        } catch (err) {
-          // Silently fail — user can retry
-        } finally {
+          var data = await res.json();
+          if (res.ok) populateFromAI(data);
+        } catch (err) { /* silent */ }
+        finally {
           btnRegenerate.disabled = false;
           regenLoading.classList.add("hidden");
         }
       });
 
-      // Edit description → back to step 1
+      /* ── Back to step 1 ── */
       btnEdit.addEventListener("click", () => {
-        hideError(submitError);
+        hideError(step2Error);
         step2.classList.add("hidden");
         step1.classList.remove("hidden");
         step1.classList.remove("fade-in");
@@ -412,62 +391,47 @@
         step1.classList.add("fade-in");
       });
 
-      // Submit request
+      /* ── Submit ── */
       btnSubmit.addEventListener("click", async () => {
-        hideError(submitError);
+        hideError(step2Error);
         btnSubmit.disabled = true;
+        btnSubmit.textContent = "Submitting...";
 
-        const householdSize = parseInt(
-          document.getElementById("householdSize").value,
-          10,
-        );
-        const dietaryRaw = document.getElementById("dietaryNeeds").value;
-        const dietaryNeeds = dietaryRaw
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-        const clientNotes = document.getElementById("clientNotes").value.trim();
-        const staffNotes = document
-          .getElementById("staffNotes")
-          .textContent.trim();
+        var householdSize = parseInt($("householdSize").value, 10);
+        var dietaryRaw = $("dietaryNeeds").value;
+        var dietaryNeeds = dietaryRaw.split(",").map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+        var clientNotes = $("clientNotes").value.trim();
+        var staffNotes = $("staffNotes").textContent.trim();
 
         if (!householdSize || householdSize < 1 || householdSize > 20) {
-          showError(submitError, "Household size must be between 1 and 20.");
+          showError(step2Error, "Household size must be between 1 and 20.");
           btnSubmit.disabled = false;
+          btnSubmit.textContent = "Submit request";
           return;
         }
 
         try {
-          const res = await fetch("/api/requests", {
+          var res = await fetch("/api/requests", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({
-              householdSize,
-              dietaryNeeds,
-              clientNotes,
-              staffNotes,
-            }),
+            body: JSON.stringify({ householdSize: householdSize, dietaryNeeds: dietaryNeeds, clientNotes: clientNotes, staffNotes: staffNotes })
           });
 
-          const data = await res.json();
+          var data = await res.json();
 
           if (!res.ok) {
-            showError(
-              submitError,
-              data.error || "Failed to submit request. Please try again.",
-            );
+            showError(step2Error, data.error || "Failed to submit request. Please try again.");
             btnSubmit.disabled = false;
+            btnSubmit.textContent = "Submit request";
             return;
           }
 
           window.location.href = "/client/dashboard?submitted=1";
         } catch (err) {
-          showError(
-            submitError,
-            "Network error. Please check your connection and try again.",
-          );
+          showError(step2Error, "Network error. Please check your connection and try again.");
           btnSubmit.disabled = false;
+          btnSubmit.textContent = "Submit request";
         }
       });
     </script>
