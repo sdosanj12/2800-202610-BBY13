@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,55 +8,53 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/admin-dashboard.css" />
 </head>
+
 <body>
 
   <!-- TOPBAR -->
   <div class="topbar">
     <div class="topbar-left">
-      <h1>Admin Dashboard — <%= employee.name %></h1>
+      <h1>Admin Dashboard — <%= employee.name %>
+      </h1>
     </div>
     <div class="topbar-right">
-      <a href="/admin/export" class="btn">Export Report</a>
+      <a href="#" class="btn">Export Report</a>
       <a href="/admin/employees/codes" class="btn btn-primary">+ Add Employee</a>
     </div>
   </div>
 
   <div class="layout">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
 
-    <!-- [ADDED] New "Overview" section with Dashboard as the active link -->
-    <div class="sidebar-section">
-      <div class="sidebar-label">Overview</div>
-      <a href="/admin/dashboard" class="sidebar-link active">
-        <span class="icon">📊</span> Dashboard
-      </a>
-    </div>
+      <!-- [ADDED] New "Overview" section with Dashboard as the active link -->
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link active">
+          <span class="icon">📊</span> Dashboard
+        </a>
+      </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Inventory</div>
-      <a href="/admin/inventory" class="sidebar-link">
-        <span class="icon">📦</span> All Items
-      </a>
-       <a href="/admin/audit-log" class="sidebar-link">
-        <span class="icon">📋</span> History &amp; Audit Log
-      </a>
-      <a href="/admin/low-stock-alerts" class="sidebar-link">
-        <span class="icon">⚠️</span> Low Stock Alerts
-      </a>
-    </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Requests</div>
+        <a href="/admin/requests" class="sidebar-link">
+          <span class="icon">📝</span> Food Requests
+        </a>
+      </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Employees</div>
-      <!-- [CHANGED] Removed class "active" from this link — it was incorrectly highlighted -->
-      <a href="/admin/employees" class="sidebar-link">
-        <span class="icon">👥</span> All Employees
-      </a>
-      <a href="/admin/employees/codes" class="sidebar-link">
-        <span class="icon">🔑</span> Generate Codes
-      </a>
-    </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="#" class="sidebar-link">
+          <span class="icon">📦</span> All Items
+        </a>
+        <a href="/admin/audit-log" class="sidebar-link">
+          <span class="icon">📋</span> History &amp; Audit Log
+        </a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link">
+          <span class="icon">⚠️</span> Low Stock Alerts
+        </a>
+      </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Volunteers</div>
@@ -70,72 +69,122 @@
       <a href="/admin/logout">Log out</a>
     </div>
   </aside>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <!-- [CHANGED] Removed class "active" from this link — it was incorrectly highlighted -->
+        <a href="/admin/employees" class="sidebar-link">
+          <span class="icon">👥</span> All Employees
+        </a>
+        <a href="/admin/employees/codes" class="sidebar-link">
+          <span class="icon">🔑</span> Generate Codes
+        </a>
+      </div>
+
+      <div class="sidebar-bottom">
+        <strong>
+          <%= employee.name %>
+        </strong>
+        <%= employee.employeeId %><br />
+          <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
 
     <!-- MAIN CONTENT -->
     <main class="content">
 
-     <!-- Stat cards -->
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-label">Inventory Items</div>
-    <div class="stat-value"><%= stats.totalInventory %></div>
-    <div class="stat-sub">Total items tracked</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Pending Requests</div>
-    <div class="stat-value" style="<%= stats.pendingRequests > 0 ? 'color:#b45309;' : '' %>"><%= stats.pendingRequests %></div>
-    <div class="stat-sub">Awaiting review</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Registered Clients</div>
-    <div class="stat-value"><%= stats.totalClients %></div>
-    <div class="stat-sub">Total</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Active Employees</div>
-    <div class="stat-value"><%= stats.totalEmployees %></div>
-    <div class="stat-sub">Staff accounts</div>
-  </div>
-</div>
+      <!-- Stat cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Inventory Items</div>
+          <div class="stat-value">
+            <%= stats.totalInventory %>
+          </div>
+          <div class="stat-sub">Total items tracked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Requests</div>
+          <div class="stat-value" style="<%= stats.pendingRequests > 0 ? 'color:#b45309;' : '' %>">
+            <%= stats.pendingRequests %>
+          </div>
+          <div class="stat-sub">Awaiting review</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Registered Clients</div>
+          <div class="stat-value">
+            <%= stats.totalClients %>
+          </div>
+          <div class="stat-sub">Total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Employees</div>
+          <div class="stat-value">
+            <%= stats.totalEmployees %>
+          </div>
+          <div class="stat-sub">Staff accounts</div>
+        </div>
+      </div>
 
-<!-- Alert banner if low/out of stock -->
-<% if (stats.lowStockCount > 0 || stats.outOfStockCount > 0) { %>
-<div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:0.875rem 1.25rem; margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between;">
-  <span style="font-size:0.875rem; color:#92400e;">
-    ⚠️ <strong><%= stats.outOfStockCount %> out of stock</strong> and <strong><%= stats.lowStockCount %> low stock</strong> items need attention.
-  </span>
-  <a href="/admin/low-stock-alerts" style="font-size:0.8rem; font-weight:600; color:#b45309; text-decoration:none;">View Alerts →</a>
-</div>
-<% } %>
+      <!-- Alert banner if low/out of stock -->
+      <% if (stats.lowStockCount> 0 || stats.outOfStockCount > 0) { %>
+        <div
+          style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:0.875rem 1.25rem; margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:0.875rem; color:#92400e;">
+            ⚠️ <strong>
+              <%= stats.outOfStockCount %> out of stock
+            </strong> and <strong>
+              <%= stats.lowStockCount %> low stock
+            </strong> items need attention.
+          </span>
+          <a href="/admin/low-stock-alerts"
+            style="font-size:0.8rem; font-weight:600; color:#b45309; text-decoration:none;">View Alerts →</a>
+        </div>
+        <% } %>
 
-<!-- Panels -->
-<div class="panels-grid">
-  <div class="panel">
-    <div class="panel-header">
-      <h2>Inventory Overview</h2>
-      <a href="/admin/inventory" class="btn" style="font-size:0.78rem; padding:0.35rem 0.85rem;">View All</a>
-    </div>
-    <div class="panel-body" style="display:block; padding:0;">
-      <% if (recentInventory.length === 0) { %>
-        <div style="display:flex; align-items:center; justify-content:center; min-height:200px; color:var(--text-muted); font-size:0.875rem;">No inventory data yet.</div>
-      <% } else { %>
-        <table style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">Item</th>
-              <th style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">Qty</th>
-              <th style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% recentInventory.forEach(item => { %>
-              <% const badgeColor = item.status === 'in-stock' ? '#d1fae5;color:#065f46' : item.status === 'low-stock' ? '#fef3c7;color:#92400e' : '#fee2e2;color:#991b1b'; %>
-              <tr>
-                <td style="padding:0.7rem 1.25rem; font-size:0.875rem; font-weight:600; border-bottom:1px solid var(--border);"><%= item.name %></td>
-                <td style="padding:0.7rem 1.25rem; font-size:0.875rem; color:var(--text-muted); border-bottom:1px solid var(--border);"><%= item.quantity %> <%= item.unit %></td>
-                <td style="padding:0.7rem 1.25rem; border-bottom:1px solid var(--border);">
-                  <span style="background:<%= badgeColor %>; padding:2px 8px; border-radius:999px; font-size:0.72rem; font-weight:600;">
-                    <%= item.status.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) %>
+          <!-- Panels -->
+          <div class="panels-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h2>Inventory Overview</h2>
+                <a href="/admin/inventory" class="btn" style="font-size:0.78rem; padding:0.35rem 0.85rem;">View All</a>
+              </div>
+              <div class="panel-body" style="display:block; padding:0;">
+                <% if (recentInventory.length===0) { %>
+                  <div
+                    style="display:flex; align-items:center; justify-content:center; min-height:200px; color:var(--text-muted); font-size:0.875rem;">
+                    No inventory data yet.</div>
+                  <% } else { %>
+                    <table style="width:100%; border-collapse:collapse;">
+                      <thead>
+                        <tr>
+                          <th
+                            style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">
+                            Item</th>
+                          <th
+                            style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">
+                            Qty</th>
+                          <th
+                            style="text-align:left; padding:0.6rem 1.25rem; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); border-bottom:1px solid var(--border);">
+                            Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <% recentInventory.forEach(item=> { %>
+                          <% const badgeColor=item.status==='in-stock' ? '#d1fae5;color:#065f46' :
+                            item.status==='low-stock' ? '#fef3c7;color:#92400e' : '#fee2e2;color:#991b1b' ; %>
+                            <tr>
+                              <td
+                                style="padding:0.7rem 1.25rem; font-size:0.875rem; font-weight:600; border-bottom:1px solid var(--border);">
+                                <%= item.name %>
+                              </td>
+                              <td
+                                style="padding:0.7rem 1.25rem; font-size:0.875rem; color:var(--text-muted); border-bottom:1px solid var(--border);">
+                                <%= item.quantity %>
+                                  <%= item.unit %>
+                              </td>
+                              <td style="padding:0.7rem 1.25rem; border-bottom:1px solid var(--border);">
+                                <span
+                                  style="background:<%= badgeColor %>; padding:2px 8px; border-radius:999px; font-size:0.72rem; font-weight:600;">
+                                  <%= item.status.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) %>
                   </span>
                 </td>
               </tr>
@@ -180,4 +229,5 @@
 
 </main>
 </body>
+
 </html>

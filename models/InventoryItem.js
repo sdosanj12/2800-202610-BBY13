@@ -1,3 +1,15 @@
+/**
+ * InventoryItem model — Represents a food item in the warehouse.
+ * Status is auto-computed on save via pre-save hooks:
+ *   - expired: expiryDate in the past
+ *   - out-of-stock: quantity === 0
+ *   - low-stock: quantity < 5
+ *   - in-stock: otherwise
+ *
+ * @author Brian Lau
+ * @author Supreet Dosanj
+ */
+
 const mongoose = require('mongoose');
 
 const inventoryItemSchema = new mongoose.Schema(
@@ -49,6 +61,11 @@ const inventoryItemSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/**
+ * Computes the inventory status based on quantity and expiry date.
+ * @param {Object} doc - Document with quantity and expiryDate fields
+ * @returns {string} One of: 'expired', 'out-of-stock', 'low-stock', 'in-stock'
+ */
 function computeStatus(doc) {
   if (doc.expiryDate && doc.expiryDate < new Date()) return 'expired';
   if (doc.quantity === 0) return 'out-of-stock';
@@ -56,10 +73,12 @@ function computeStatus(doc) {
   return 'in-stock';
 }
 
+/** Pre-save hook: recomputes status whenever the document is saved. */
 inventoryItemSchema.pre('save', function () {
   this.status = computeStatus(this);
 });
 
+/** Pre-findOneAndUpdate hook: recomputes status when quantity or expiryDate changes. */
 inventoryItemSchema.pre('findOneAndUpdate', async function () {
   const update = this.getUpdate() || {};
   const incoming = { ...update, ...(update.$set || {}) };

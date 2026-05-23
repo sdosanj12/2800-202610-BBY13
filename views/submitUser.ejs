@@ -1,11 +1,24 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <title>Account Created</title>
 </head>
+
 <body>
+  <header id="navbar-container">
+    <%- include('partials/navbar') %>
+  </header>
   <h1>Account Created Successfully</h1>
   <p>Your account has been created.</p>
   <a href="/login">Go to login</a>
+
+  <footer class="footer">
+    <div id="footer-container">
+      <%- include('partials/footer') %>
+    </div>
+  </footer>
+
 </body>
+
 </html>

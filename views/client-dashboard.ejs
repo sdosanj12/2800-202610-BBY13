@@ -1,31 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard — Food Bank Tracker</title>
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/client-dashboard.css" />
-  </head>
-  <body>
-    <!-- Navbar  -->
-    <nav class="navbar">
-      <a href="/client/dashboard" class="nav-brand">Food Bank Tracker</a>
-      <ul class="nav-links">
-        <li><a href="/client/dashboard" class="nav-active">Dashboard</a></li>
-        <li><a href="/request">Request</a></li>
-        <li><a href="/logout" class="nav-logout">Logout</a></li>
-      </ul>
-    </nav>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Food Bank Tracker</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/client-dashboard.css" />
+</head>
+
+<body>
+  <!-- Navbar  -->
+  <%- include('partials/navbar') %>
 
     <!-- Main -->
     <main class="page-content">
       <!-- Welcome -->
-      <h1 class="welcome-heading">Welcome back, <%= username %></h1>
+      <h1 class="welcome-heading">Welcome back, <%= username %>
+      </h1>
       <p class="welcome-sub">
         Here's a summary of your requests and notifications.
       </p>
@@ -42,10 +35,7 @@
           <p class="stat-card__label">Total Requests</p>
         </div>
         <div class="stat-card">
-          <p
-            class="stat-card__number stat-card__number--pending"
-            id="stat-pending"
-          >
+          <p class="stat-card__number stat-card__number--pending" id="stat-pending">
             —
           </p>
           <p class="stat-card__label">Pending</p>
@@ -67,7 +57,7 @@
             you.
           </p>
         </div>
-        <a href="/request" class="cta-banner__btn">Get started &rarr;</a>
+        <a href="/client/ai-request" class="cta-banner__btn">Get started &rarr;</a>
       </div>
 
       <!-- Tabs -->
@@ -86,9 +76,7 @@
         </p>
         <div id="history-empty" class="state-msg" style="display: none">
           <p>You haven't made any requests yet.</p>
-          <a href="/request" class="state-msg__link"
-            >Make your first request &rarr;</a
-          >
+          <a href="/request" class="state-msg__link">Make your first request &rarr;</a>
         </div>
         <div id="history-list" class="request-list" style="display: none"></div>
       </div>
@@ -112,93 +100,84 @@
     </main>
 
     <!-- Footer -->
-    <footer class="site-footer">
-      <span>&copy; 2026 Food Bank Tracker</span>
-      <div class="footer-links">
-        <a href="/privacy">Privacy Policy</a>
-        <a href="/terms">Terms of Service</a>
-        <a href="/support">Contact Support</a>
-      </div>
-    </footer>
+    <%- include('partials/footer') %>
 
-    <script src="/navbar.js"></script>
+      <script>
+        function $(id) {
+          return document.getElementById(id);
+        }
 
-    <script>
-      function $(id) {
-        return document.getElementById(id);
-      }
-
-      function formatDate(iso) {
-        if (!iso) return "—";
-        return new Date(iso).toLocaleDateString("en-CA", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        });
-      }
-
-      /* ── Tabs ── */
-      function switchTab(name) {
-        document.querySelectorAll(".tab-btn").forEach((b) => {
-          b.classList.toggle("active", b.dataset.tab === name);
-        });
-        document.querySelectorAll(".tab-panel").forEach((p) => {
-          p.classList.remove("active", "fade-in");
-        });
-        const panel = $("tab-" + name);
-        panel.classList.add("active");
-        void panel.offsetWidth;
-        panel.classList.add("fade-in");
-      }
-
-      document.querySelectorAll(".tab-btn").forEach((btn) => {
-        btn.addEventListener("click", () => switchTab(btn.dataset.tab));
-      });
-
-      /* ── Submission banner ── */
-      if (
-        new URLSearchParams(window.location.search).get("submitted") === "1"
-      ) {
-        $("submitted-banner").classList.add("visible");
-        history.replaceState(null, "", "/client/dashboard");
-      }
-
-      /* ── Request history ── */
-      async function loadHistory() {
-        try {
-          const res = await fetch("/api/requests/me", {
-            credentials: "include",
+        function formatDate(iso) {
+          if (!iso) return "—";
+          return new Date(iso).toLocaleDateString("en-CA", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
           });
-          const data = await res.json();
-          $("history-loading").style.display = "none";
+        }
 
-          const requests = data.requests || [];
-          $("stat-total").textContent = requests.length;
-          $("stat-pending").textContent = requests.filter(
-            (r) => r.status === "pending",
-          ).length;
+        /* ── Tabs ── */
+        function switchTab(name) {
+          document.querySelectorAll(".tab-btn").forEach((b) => {
+            b.classList.toggle("active", b.dataset.tab === name);
+          });
+          document.querySelectorAll(".tab-panel").forEach((p) => {
+            p.classList.remove("active", "fade-in");
+          });
+          const panel = $("tab-" + name);
+          panel.classList.add("active");
+          void panel.offsetWidth;
+          panel.classList.add("fade-in");
+        }
 
-          if (requests.length === 0) {
-            $("history-empty").style.display = "block";
-            return;
-          }
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+        });
 
-          const list = $("history-list");
-          list.style.display = "flex";
-          list.innerHTML = "";
+        /* ── Submission banner ── */
+        if (
+          new URLSearchParams(window.location.search).get("submitted") === "1"
+        ) {
+          $("submitted-banner").classList.add("visible");
+          history.replaceState(null, "", "/client/dashboard");
+        }
 
-          requests.forEach((r) => {
-            const dietary = (r.dietaryNeeds || []).join(", ") || "None listed";
-            const status = r.status || "pending";
-            const statusLabel =
-              status.charAt(0).toUpperCase() + status.slice(1);
-            const pickup = r.pickupDate
-              ? `<p class="request-card__detail">Pickup: ${formatDate(r.pickupDate)}${r.pickupTime ? " at " + r.pickupTime : ""}</p>`
-              : "";
+        /* ── Request history ── */
+        async function loadHistory() {
+          try {
+            const res = await fetch("/api/requests/me", {
+              credentials: "include",
+            });
+            const data = await res.json();
+            $("history-loading").style.display = "none";
 
-            list.insertAdjacentHTML(
-              "beforeend",
-              `
+            const requests = data.requests || [];
+            $("stat-total").textContent = requests.length;
+            $("stat-pending").textContent = requests.filter(
+              (r) => r.status === "pending",
+            ).length;
+
+            if (requests.length === 0) {
+              $("history-empty").style.display = "block";
+              return;
+            }
+
+            const list = $("history-list");
+            list.style.display = "flex";
+            list.innerHTML = "";
+
+            requests.forEach((r) => {
+              const dietary = (r.dietaryNeeds || []).join(", ") || "None listed";
+              const status = r.status || "pending";
+              const statusLabel =
+                status.charAt(0).toUpperCase() + status.slice(1);
+              const pickup = r.pickupDate
+                ? `<p class="request-card__detail">Pickup: ${formatDate(r.pickupDate)}${r.pickupTime ? " at " + r.pickupTime : ""}</p>`
+                : "";
+
+              list.insertAdjacentHTML(
+                "beforeend",
+                `
             <div class="request-card">
               <div class="request-card__body">
                 <p class="request-card__title">Household of ${r.householdSize}</p>
@@ -210,70 +189,70 @@
               <span class="badge badge--${status}">${statusLabel}</span>
             </div>
           `,
-            );
-          });
-        } catch (err) {
-          const el = $("history-loading");
-          el.textContent = "Failed to load requests.";
-          el.classList.remove("pulse-loading");
+              );
+            });
+          } catch (err) {
+            const el = $("history-loading");
+            el.textContent = "Failed to load requests.";
+            el.classList.remove("pulse-loading");
+          }
         }
-      }
 
-      /* ── Notifications ── */
-      async function loadNotifications() {
-        try {
-          const res = await fetch("/api/notifications", {
-            credentials: "include",
-          });
-          const data = await res.json();
-          $("notif-loading").style.display = "none";
+        /* ── Notifications ── */
+        async function loadNotifications() {
+          try {
+            const res = await fetch("/api/notifications", {
+              credentials: "include",
+            });
+            const data = await res.json();
+            $("notif-loading").style.display = "none";
 
-          const notifs = data.notifications || [];
-          const unread = data.unreadCount || 0;
+            const notifs = data.notifications || [];
+            const unread = data.unreadCount || 0;
 
-          $("stat-unread").textContent = unread;
-          if (unread > 0) {
-            $("notif-badge").textContent = unread;
-            $("notif-badge").classList.add("visible");
-            $("btn-mark-all-read").classList.add("visible");
-          }
+            $("stat-unread").textContent = unread;
+            if (unread > 0) {
+              $("notif-badge").textContent = unread;
+              $("notif-badge").classList.add("visible");
+              $("btn-mark-all-read").classList.add("visible");
+            }
 
-          if (notifs.length === 0) {
-            $("notif-empty").style.display = "block";
-            return;
-          }
+            if (notifs.length === 0) {
+              $("notif-empty").style.display = "block";
+              return;
+            }
 
-          const list = $("notif-list");
-          list.style.display = "flex";
-          list.innerHTML = "";
+            const list = $("notif-list");
+            list.style.display = "flex";
+            list.innerHTML = "";
 
-          notifs.forEach((n) => {
-            const isApproved = n.type === "request-approved";
-            const isDenied = n.type === "request-denied";
+            notifs.forEach((n) => {
+              const isApproved = n.type === "request-approved";
+              const isDenied = n.type === "request-denied";
 
-            const cardMod = n.read
-              ? ""
-              : isApproved
-                ? "notif-card--unread-approved"
+              const cardMod = n.read
+                ? ""
+                : isApproved
+                  ? "notif-card--unread-approved"
+                  : isDenied
+                    ? "notif-card--unread-denied"
+                    : "notif-card--unread-default";
+
+              const labelMod = isApproved
+                ? "notif-card__label--approved"
                 : isDenied
-                  ? "notif-card--unread-denied"
-                  : "notif-card--unread-default";
+                  ? "notif-card__label--denied"
+                  : "notif-card__label--default";
 
-            const labelMod = isApproved
-              ? "notif-card__label--approved"
-              : isDenied
-                ? "notif-card__label--denied"
-                : "notif-card__label--default";
+              const labelText = isApproved
+                ? "Approved"
+                : isDenied
+                  ? "Denied"
+                  : "Notice";
 
-            const labelText = isApproved
-              ? "Approved"
-              : isDenied
-                ? "Denied"
-                : "Notice";
-
-            list.insertAdjacentHTML(
-              "beforeend",
-              `
+              list.insertAdjacentHTML(
+                "beforeend",
+                `
             <div id="notif-${n._id}" class="notif-card ${cardMod}">
               <div class="notif-card__body">
                 <p class="notif-card__label ${labelMod}">${labelText}</p>
@@ -281,90 +260,89 @@
                 <p class="notif-card__date">${formatDate(n.createdAt)}</p>
               </div>
               <div class="notif-card__actions">
-                ${
-                  !n.read
-                    ? `<button class="notif-action-btn" onclick="markRead('${n._id}')">Mark read</button>`
-                    : ""
+                ${!n.read
+                  ? `<button class="notif-action-btn" onclick="markRead('${n._id}')">Mark read</button>`
+                  : ""
                 }
                 <button class="notif-dismiss-btn" onclick="dismissNotif('${n._id}')" title="Dismiss">&times;</button>
               </div>
             </div>
           `,
-            );
-          });
-        } catch (err) {
-          const el = $("notif-loading");
-          el.textContent = "Failed to load notifications.";
-          el.classList.remove("pulse-loading");
+              );
+            });
+          } catch (err) {
+            const el = $("notif-loading");
+            el.textContent = "Failed to load notifications.";
+            el.classList.remove("pulse-loading");
+          }
         }
-      }
 
-      async function markRead(id) {
-        await fetch(`/api/notifications/${id}/read`, {
-          method: "PATCH",
-          credentials: "include",
-        });
-        const el = $("notif-" + id);
-        if (el) {
-          el.classList.remove(
-            "notif-card--unread-approved",
-            "notif-card--unread-denied",
-            "notif-card--unread-default",
-          );
-          const btn = el.querySelector(".notif-action-btn");
-          if (btn) btn.remove();
-          const msg = el.querySelector(".notif-card__message--unread");
-          if (msg) msg.classList.remove("notif-card__message--unread");
+        async function markRead(id) {
+          await fetch(`/api/notifications/${id}/read`, {
+            method: "PATCH",
+            credentials: "include",
+          });
+          const el = $("notif-" + id);
+          if (el) {
+            el.classList.remove(
+              "notif-card--unread-approved",
+              "notif-card--unread-denied",
+              "notif-card--unread-default",
+            );
+            const btn = el.querySelector(".notif-action-btn");
+            if (btn) btn.remove();
+            const msg = el.querySelector(".notif-card__message--unread");
+            if (msg) msg.classList.remove("notif-card__message--unread");
+          }
+          const badge = $("notif-badge");
+          const cur = parseInt(badge.textContent || "0", 10) - 1;
+          if (cur <= 0) {
+            badge.classList.remove("visible");
+            $("btn-mark-all-read").classList.remove("visible");
+            $("stat-unread").textContent = "0";
+          } else {
+            badge.textContent = cur;
+            $("stat-unread").textContent = cur;
+          }
         }
-        const badge = $("notif-badge");
-        const cur = parseInt(badge.textContent || "0", 10) - 1;
-        if (cur <= 0) {
-          badge.classList.remove("visible");
+
+        async function dismissNotif(id) {
+          await fetch(`/api/notifications/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          const el = $("notif-" + id);
+          if (el) el.remove();
+          if (!$("notif-list").children.length) {
+            $("notif-list").style.display = "none";
+            $("notif-empty").style.display = "block";
+          }
+        }
+
+        $("btn-mark-all-read").addEventListener("click", async () => {
+          await fetch("/api/notifications/read-all", {
+            method: "PATCH",
+            credentials: "include",
+          });
+          document.querySelectorAll(".notif-card").forEach((el) => {
+            el.classList.remove(
+              "notif-card--unread-approved",
+              "notif-card--unread-denied",
+              "notif-card--unread-default",
+            );
+            const btn = el.querySelector(".notif-action-btn");
+            if (btn) btn.remove();
+            const msg = el.querySelector(".notif-card__message--unread");
+            if (msg) msg.classList.remove("notif-card__message--unread");
+          });
+          $("notif-badge").classList.remove("visible");
           $("btn-mark-all-read").classList.remove("visible");
           $("stat-unread").textContent = "0";
-        } else {
-          badge.textContent = cur;
-          $("stat-unread").textContent = cur;
-        }
-      }
-
-      async function dismissNotif(id) {
-        await fetch(`/api/notifications/${id}`, {
-          method: "DELETE",
-          credentials: "include",
         });
-        const el = $("notif-" + id);
-        if (el) el.remove();
-        if (!$("notif-list").children.length) {
-          $("notif-list").style.display = "none";
-          $("notif-empty").style.display = "block";
-        }
-      }
 
-      $("btn-mark-all-read").addEventListener("click", async () => {
-        await fetch("/api/notifications/read-all", {
-          method: "PATCH",
-          credentials: "include",
-        });
-        document.querySelectorAll(".notif-card").forEach((el) => {
-          el.classList.remove(
-            "notif-card--unread-approved",
-            "notif-card--unread-denied",
-            "notif-card--unread-default",
-          );
-          const btn = el.querySelector(".notif-action-btn");
-          if (btn) btn.remove();
-          const msg = el.querySelector(".notif-card__message--unread");
-          if (msg) msg.classList.remove("notif-card__message--unread");
-        });
-        $("notif-badge").classList.remove("visible");
-        $("btn-mark-all-read").classList.remove("visible");
-        $("stat-unread").textContent = "0";
-      });
+        loadHistory();
+        loadNotifications();
+      </script>
+</body>
 
-      
-      loadHistory();
-      loadNotifications();
-    </script>
-  </body>
 </html>

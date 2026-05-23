@@ -1,330 +1,269 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign Up — Food Bank Tracker</title>
 
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up — Food Bank Tracker</title>
 
-    <link rel="stylesheet" href="signup.css" />
-  </head>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <body>
+  <link rel="stylesheet" href="signup.css" />
+</head>
 
-    <!--Navbar-->
-    <nav class="navbar">
-      <a href="/" class="nav-brand">Food Bank Tracker</a>
-      <ul class="nav-links">
-        <li><a href="/inventory">Inventory</a></li>
-        <li><a href="/requests">Requests</a></li>
-        <li><a href="/volunteers">Volunteers</a></li>
-        <li><a href="/reports">Reports</a></li>
-        <li><a href="/login">Login</a></li>
-      </ul>
-    </nav>
+<body>
 
-    <!-- Main content -->
-    <main class="page-content">
-      <div class="card">
+  <header id="navbar-container">
+    <%- include('partials/navbar') %>
+  </header>
 
-        <div class="card-header">
-          <h1 class="card-title">Create Account</h1>
-          <hr class="card-divider" />
+
+  <!-- Main content -->
+  <main class="page-content">
+    <div class="card">
+
+      <div class="card-header">
+        <h1 class="card-title">Create Account</h1>
+        <hr class="card-divider" />
+      </div>
+
+      <!-- Signup form-->
+      <form id="signupForm" action="/submitUser" method="POST" novalidate autocomplete="off">
+
+        <!-- Username -->
+        <div class="form-group" id="group-username">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-input" type="text" id="username" name="username" placeholder="e.g. jane_doe"
+            autocomplete="username" aria-describedby="username-error" />
+          <span class="form-error" id="username-error" role="alert"></span>
         </div>
 
-        <!-- Signup form-->
-        <form
-          id="signupForm"
-          action="/submitUser"
-          method="POST"
-          novalidate
-          autocomplete="off"
-        >
+        <!-- Email -->
+        <div class="form-group" id="group-email">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="form-input" type="email" id="email" name="email" placeholder="you@example.com"
+            autocomplete="email" aria-describedby="email-error" />
+          <span class="form-error" id="email-error" role="alert"></span>
+        </div>
 
-          <!-- Username -->
-          <div class="form-group" id="group-username">
-            <label class="form-label" for="username">Username</label>
-            <input
-              class="form-input"
-              type="text"
-              id="username"
-              name="username"
-              placeholder="e.g. jane_doe"
-              autocomplete="username"
-              aria-describedby="username-error"
-            />
-            <span class="form-error" id="username-error" role="alert"></span>
+        <!-- Password -->
+        <div class="form-group" id="group-password">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-wrapper">
+            <input class="form-input" type="password" id="password" name="password" placeholder="8–20 characters"
+              autocomplete="new-password" aria-describedby="password-error" />
+            <button type="button" class="toggle-password" id="togglePassword" aria-label="Toggle password visibility">
+              <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
           </div>
+          <span class="form-error" id="password-error" role="alert"></span>
+        </div>
 
-          <!-- Email -->
-          <div class="form-group" id="group-email">
-            <label class="form-label" for="email">Email Address</label>
-            <input
-              class="form-input"
-              type="email"
-              id="email"
-              name="email"
-              placeholder="you@example.com"
-              autocomplete="email"
-              aria-describedby="email-error"
-            />
-            <span class="form-error" id="email-error" role="alert"></span>
+        <!--Confirm Password -->
+        <div class="form-group" id="group-confirm">
+          <label class="form-label" for="confirmPassword">Confirm Password</label>
+          <div class="input-wrapper">
+            <input class="form-input" type="password" id="confirmPassword" name="confirmPassword"
+              placeholder="Repeat your password" autocomplete="new-password" aria-describedby="confirm-error" />
+            <button type="button" class="toggle-password" id="toggleConfirm"
+              aria-label="Toggle confirm password visibility">
+              <svg id="eyeIconConfirm" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
           </div>
+          <span class="form-error" id="confirm-error" role="alert"></span>
+        </div>
 
-          <!-- Password -->
-          <div class="form-group" id="group-password">
-            <label class="form-label" for="password">Password</label>
-            <div class="input-wrapper">
-              <input
-                class="form-input"
-                type="password"
-                id="password"
-                name="password"
-                placeholder="8–20 characters"
-                autocomplete="new-password"
-                aria-describedby="password-error"
-              />
-              <button
-                type="button"
-                class="toggle-password"
-                id="togglePassword"
-                aria-label="Toggle password visibility"
-              >
-                <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
-            <span class="form-error" id="password-error" role="alert"></span>
+        <!-- User Type  -->
+        <div class="form-group" id="group-user_type">
+          <label class="form-label" for="user_type">Role</label>
+          <select class="form-input form-select" id="user_type" name="user_type" aria-describedby="user_type-error">
+            <option value="">Select a role…</option>
+            <option value="client">Client</option>
+            <option value="volunteer">Volunteer</option>
+            <option value="admin">Admin</option>
+          </select>
+          <span class="form-error" id="user_type-error" role="alert"></span>
+        </div>
+
+        <!-- Submit Button  -->
+        <button type="submit" class="btn-submit" id="submitBtn">
+          <span class="btn-text">Create Account</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+
+        <!--Server-side  -->
+        <% if (typeof error !=='undefined' && error) { %>
+          <div class="server-error" role="alert">
+            <%= error %>
           </div>
-
-          <!--Confirm Password -->
-          <div class="form-group" id="group-confirm">
-            <label class="form-label" for="confirmPassword">Confirm Password</label>
-            <div class="input-wrapper">
-              <input
-                class="form-input"
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                placeholder="Repeat your password"
-                autocomplete="new-password"
-                aria-describedby="confirm-error"
-              />
-              <button
-                type="button"
-                class="toggle-password"
-                id="toggleConfirm"
-                aria-label="Toggle confirm password visibility"
-              >
-                <svg id="eyeIconConfirm" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
-                  viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
-            <span class="form-error" id="confirm-error" role="alert"></span>
-          </div>
-
-          <!-- User Type  -->
-          <div class="form-group" id="group-user_type">
-            <label class="form-label" for="user_type">Role</label>
-            <select
-              class="form-input form-select"
-              id="user_type"
-              name="user_type"
-              aria-describedby="user_type-error"
-            >
-              <option value="">Select a role…</option>
-              <option value="client">Client</option>
-              <option value="volunteer">Volunteer</option>
-              <option value="admin">Admin</option>
-            </select>
-            <span class="form-error" id="user_type-error" role="alert"></span>
-          </div>
-
-          <!-- Submit Button  -->
-          <button type="submit" class="btn-submit" id="submitBtn">
-            <span class="btn-text">Create Account</span>
-            <span class="btn-spinner" aria-hidden="true"></span>
-          </button>
-
-          <!--Server-side  -->
-          <% if (typeof error !== 'undefined' && error) { %>
-            <div class="server-error" role="alert">
-              <%= error %>
-            </div>
           <% } %>
 
-        </form>
+      </form>
 
-        <p class="card-footer-text">
-          Already have an account?
-          <a href="/login" class="link-accent">Sign in</a>
-        </p>
+      <p class="card-footer-text">
+        Already have an account?
+        <a href="/login" class="link-accent">Sign in</a>
+      </p>
 
-      </div>
-    </main>
+    </div>
+  </main>
 
-    <!-- Footer -->
-    <footer class="site-footer">
-      <span>© 2026 Food Bank Tracker</span>
-      <div class="footer-links">
-        <a href="/privacy">Privacy Policy</a>
-        <a href="/terms">Terms of Service</a>
-        <a href="/support">Contact Support</a>
-      </div>
-    </footer>
+  <!-- Footer -->
 
-    <!-- Client-side validation -->
-    <script>
-      // show erro
-      function showError(groupId, errorId, message) {
-        document.getElementById(groupId).classList.add("has-error");
-        const el = document.getElementById(errorId);
-        el.textContent   = message;
-        el.style.display = "block";
+  <footer class="footer">
+    <div id="footer-container">
+      <%- include('partials/footer') %>
+    </div>
+  </footer>
+
+  <!-- Client-side validation -->
+  <script>
+    // show erro
+    function showError(groupId, errorId, message) {
+      document.getElementById(groupId).classList.add("has-error");
+      const el = document.getElementById(errorId);
+      el.textContent = message;
+      el.style.display = "block";
+    }
+
+    //  clear error
+    function clearError(groupId, errorId) {
+      document.getElementById(groupId).classList.remove("has-error");
+      const el = document.getElementById(errorId);
+      el.textContent = "";
+      el.style.display = "none";
+    }
+
+    // email format check 
+    function isValidEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    // alphanumeric check 
+    function isAlphanumeric(value) {
+      return /^[a-zA-Z0-9]+$/.test(value);
+    }
+
+    // Validate all fields 
+    function validateForm() {
+      let isValid = true;
+
+      const username = document.getElementById("username").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+      const user_type = document.getElementById("user_type").value;
+
+      //  Username: alphanum, min 3, max 20 
+      if (username === "") {
+        showError("group-username", "username-error", "Username is required.");
+        isValid = false;
+      } else if (!isAlphanumeric(username)) {
+        showError("group-username", "username-error", "Username can only contain letters and numbers.");
+        isValid = false;
+      } else if (username.length < 3) {
+        showError("group-username", "username-error", "Username must be at least 3 characters.");
+        isValid = false;
+      } else if (username.length > 20) {
+        showError("group-username", "username-error", "Username must be 20 characters or fewer.");
+        isValid = false;
+      } else {
+        clearError("group-username", "username-error");
       }
 
-      //  clear error
-      function clearError(groupId, errorId) {
-        document.getElementById(groupId).classList.remove("has-error");
-        const el = document.getElementById(errorId);
-        el.textContent   = "";
-        el.style.display = "none";
+      //  Email: valid format, max 254 
+      if (email === "") {
+        showError("group-email", "email-error", "Email address is required.");
+        isValid = false;
+      } else if (!isValidEmail(email)) {
+        showError("group-email", "email-error", "Please enter a valid email address.");
+        isValid = false;
+      } else if (email.length > 254) {
+        showError("group-email", "email-error", "Email address is too long.");
+        isValid = false;
+      } else {
+        clearError("group-email", "email-error");
       }
 
-      // email format check 
-      function isValidEmail(value) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      //  Password: min 8, max 20 
+      if (password === "") {
+        showError("group-password", "password-error", "Password is required.");
+        isValid = false;
+      } else if (password.length < 8) {
+        showError("group-password", "password-error", "Password must be at least 8 characters.");
+        isValid = false;
+      } else if (password.length > 20) {
+        showError("group-password", "password-error", "Password must be 20 characters or fewer.");
+        isValid = false;
+      } else {
+        clearError("group-password", "password-error");
       }
 
-      // alphanumeric check 
-      function isAlphanumeric(value) {
-        return /^[a-zA-Z0-9]+$/.test(value);
+      //  Confirm Password: must match 
+      if (confirmPassword === "") {
+        showError("group-confirm", "confirm-error", "Please confirm your password.");
+        isValid = false;
+      } else if (confirmPassword !== password) {
+        showError("group-confirm", "confirm-error", "Passwords do not match.");
+        isValid = false;
+      } else {
+        clearError("group-confirm", "confirm-error");
       }
 
-      // Validate all fields 
-      function validateForm() {
-        let isValid = true;
-
-        const username        = document.getElementById("username").value.trim();
-        const email           = document.getElementById("email").value.trim();
-        const password        = document.getElementById("password").value;
-        const confirmPassword = document.getElementById("confirmPassword").value;
-        const user_type       = document.getElementById("user_type").value;
-
-        //  Username: alphanum, min 3, max 20 
-        if (username === "") {
-          showError("group-username", "username-error", "Username is required.");
-          isValid = false;
-        } else if (!isAlphanumeric(username)) {
-          showError("group-username", "username-error", "Username can only contain letters and numbers.");
-          isValid = false;
-        } else if (username.length < 3) {
-          showError("group-username", "username-error", "Username must be at least 3 characters.");
-          isValid = false;
-        } else if (username.length > 20) {
-          showError("group-username", "username-error", "Username must be 20 characters or fewer.");
-          isValid = false;
-        } else {
-          clearError("group-username", "username-error");
-        }
-
-        //  Email: valid format, max 254 
-        if (email === "") {
-          showError("group-email", "email-error", "Email address is required.");
-          isValid = false;
-        } else if (!isValidEmail(email)) {
-          showError("group-email", "email-error", "Please enter a valid email address.");
-          isValid = false;
-        } else if (email.length > 254) {
-          showError("group-email", "email-error", "Email address is too long.");
-          isValid = false;
-        } else {
-          clearError("group-email", "email-error");
-        }
-
-        //  Password: min 8, max 20 
-        if (password === "") {
-          showError("group-password", "password-error", "Password is required.");
-          isValid = false;
-        } else if (password.length < 8) {
-          showError("group-password", "password-error", "Password must be at least 8 characters.");
-          isValid = false;
-        } else if (password.length > 20) {
-          showError("group-password", "password-error", "Password must be 20 characters or fewer.");
-          isValid = false;
-        } else {
-          clearError("group-password", "password-error");
-        }
-
-        //  Confirm Password: must match 
-        if (confirmPassword === "") {
-          showError("group-confirm", "confirm-error", "Please confirm your password.");
-          isValid = false;
-        } else if (confirmPassword !== password) {
-          showError("group-confirm", "confirm-error", "Passwords do not match.");
-          isValid = false;
-        } else {
-          clearError("group-confirm", "confirm-error");
-        }
-
-        //  User Type: must select one 
-        if (user_type === "") {
-          showError("group-user_type", "user_type-error", "Please select a role.");
-          isValid = false;
-        } else {
-          clearError("group-user_type", "user_type-error");
-        }
-
-        return isValid;
+      //  User Type: must select one 
+      if (user_type === "") {
+        showError("group-user_type", "user_type-error", "Please select a role.");
+        isValid = false;
+      } else {
+        clearError("group-user_type", "user_type-error");
       }
 
-      // Form submit 
-      document.getElementById("signupForm").addEventListener("submit", function (e) {
-        e.preventDefault();
+      return isValid;
+    }
 
-        if (validateForm()) {
-          const btn = document.getElementById("submitBtn");
-          btn.disabled = true;
-          btn.classList.add("loading");
-          btn.querySelector(".btn-text").textContent = "Creating account…";
-          this.submit();
-        }
-      });
+    // Form submit 
+    document.getElementById("signupForm").addEventListener("submit", function (e) {
+      e.preventDefault();
 
-      //clear errors as user types 
-      document.getElementById("username").addEventListener("input", () =>
-        clearError("group-username", "username-error"));
+      if (validateForm()) {
+        const btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        btn.classList.add("loading");
+        btn.querySelector(".btn-text").textContent = "Creating account…";
+        this.submit();
+      }
+    });
 
-      document.getElementById("email").addEventListener("input", () =>
-        clearError("group-email", "email-error"));
+    //clear errors as user types 
+    document.getElementById("username").addEventListener("input", () =>
+      clearError("group-username", "username-error"));
 
-      document.getElementById("password").addEventListener("input", () =>
-        clearError("group-password", "password-error"));
+    document.getElementById("email").addEventListener("input", () =>
+      clearError("group-email", "email-error"));
 
-      document.getElementById("confirmPassword").addEventListener("input", () =>
-        clearError("group-confirm", "confirm-error"));
+    document.getElementById("password").addEventListener("input", () =>
+      clearError("group-password", "password-error"));
 
-      document.getElementById("user_type").addEventListener("change", () =>
-        clearError("group-user_type", "user_type-error"));
+    document.getElementById("confirmPassword").addEventListener("input", () =>
+      clearError("group-confirm", "confirm-error"));
 
-      
-      const eyeOpen = `
+    document.getElementById("user_type").addEventListener("change", () =>
+      clearError("group-user_type", "user_type-error"));
+
+
+    const eyeOpen = `
         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
         <circle cx="12" cy="12" r="3"/>
       `;
-      const eyeOff = `
+    const eyeOff = `
         <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8
                  a18.45 18.45 0 0 1 5.06-5.94"/>
         <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8
@@ -332,26 +271,27 @@
         <line x1="1" y1="1" x2="23" y2="23"/>
       `;
 
-      
-      function setupToggle(buttonId, inputId, iconId) {
-        document.getElementById(buttonId).addEventListener("click", function () {
-          const input = document.getElementById(inputId);
-          const icon  = document.getElementById(iconId);
-          if (input.type === "password") {
-            input.type     = "text";
-            icon.innerHTML = eyeOff;
-            this.setAttribute("aria-label", "Hide password");
-          } else {
-            input.type     = "password";
-            icon.innerHTML = eyeOpen;
-            this.setAttribute("aria-label", "Show password");
-          }
-        });
-      }
 
-      setupToggle("togglePassword", "password",        "eyeIcon");
-      setupToggle("toggleConfirm",  "confirmPassword", "eyeIconConfirm");
-    </script>
+    function setupToggle(buttonId, inputId, iconId) {
+      document.getElementById(buttonId).addEventListener("click", function () {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (input.type === "password") {
+          input.type = "text";
+          icon.innerHTML = eyeOff;
+          this.setAttribute("aria-label", "Hide password");
+        } else {
+          input.type = "password";
+          icon.innerHTML = eyeOpen;
+          this.setAttribute("aria-label", "Show password");
+        }
+      });
+    }
 
-  </body>
+    setupToggle("togglePassword", "password", "eyeIcon");
+    setupToggle("toggleConfirm", "confirmPassword", "eyeIconConfirm");
+  </script>
+
+</body>
+
 </html>

@@ -1,7 +1,21 @@
+/**
+ * Employee model — Represents an admin/staff employee.
+ * Uses a unique Employee ID (format: EMP-XXXXXXXX) and a hashed PIN for login.
+ * Separate from the User model to maintain distinct auth systems.
+ *
+ * @author Supreet Dosanj
+ * @author Brian Lau
+ */
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
+/**
+ * Generates a unique Employee ID in the format EMP-XXXXXXXX.
+ * Uses crypto.randomBytes for cryptographically secure randomness.
+ * @returns {string} Employee ID (e.g. "EMP-AB3K9Z7W")
+ */
 function generateEmployeeId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let id = 'EMP-';
@@ -58,11 +72,17 @@ const employeeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+/** Pre-save hook: hashes the PIN with bcrypt if it was modified. */
 employeeSchema.pre('save', async function () {
   if (!this.isModified('pin')) return;
   this.pin = await bcrypt.hash(this.pin, 12);
 });
 
+/**
+ * Compares a plain-text PIN against the stored bcrypt hash.
+ * @param {string} candidatePin - The PIN to verify
+ * @returns {Promise<boolean>} True if the PIN matches
+ */
 employeeSchema.methods.comparePin = function (candidatePin) {
   return bcrypt.compare(candidatePin, this.pin);
 };
