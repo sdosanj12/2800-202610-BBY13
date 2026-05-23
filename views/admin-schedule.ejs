@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Volunteer Schedule — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin-dashboard.css" />
+  <style>
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .page-header h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1a3a5c;
+    }
+    .btn-add {
+      background: #1a3a5c;
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.55rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 0.875rem;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .schedule-table thead {
+      background: #f1f5f9;
+    }
+    .schedule-table th {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+    }
+    .schedule-table td {
+      padding: 0.9rem 1rem;
+      font-size: 0.9rem;
+      color: #374151;
+      border-top: 1px solid #f1f5f9;
+    }
+    .schedule-table tr:hover td {
+      background: #f8fafc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.confirmed { background: #dcfce7; color: #166534; }
+    .badge.pending   { background: #fef9c3; color: #854d0e; }
+    .badge.upcoming  { background: #dbeafe; color: #1d4ed8; }
+    .action-btn {
+      font-size: 0.8rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 0.4rem;
+      border: 1.5px solid #d1d5db;
+      background: none;
+      cursor: pointer;
+      color: #374151;
+      font-weight: 500;
+      margin-right: 0.35rem;
+      text-decoration: none;
+    }
+    .action-btn:hover { background: #f1f5f9; }
+    .action-btn.danger { border-color: #fca5a5; color: #dc2626; }
+    .action-btn.danger:hover { background: #fef2f2; }
+    .info-note {
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      font-size: 0.88rem;
+      color: #1e40af;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Admin Dashboard — <%= employee.name %></h1>
+    </div>
+    <div class="topbar-right">
+      <a href="/admin/schedule" class="btn btn-primary">+ Add Shift</a>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link">
+          <span class="icon">📊</span> Dashboard
+        </a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link">
+          <span class="icon">📦</span> All Items
+        </a>
+        <a href="/admin/audit-log" class="sidebar-link">
+          <span class="icon">📋</span> History &amp; Audit Log
+        </a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link">
+          <span class="icon">⚠️</span> Low Stock Alerts
+        </a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Volunteers</div>
+        <a href="/admin/schedule" class="sidebar-link active">
+          <span class="icon">📅</span> Volunteer Schedule
+        </a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link">
+          <span class="icon">👥</span> All Employees
+        </a>
+        <a href="/admin/employees/codes" class="sidebar-link">
+          <span class="icon">🔑</span> Generate Codes
+        </a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= employee.name %></strong><br />
+        <%= employee.employeeId %><br />
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="content">
+      <div class="page-header">
+        <h2>📅 Volunteer Schedule</h2>
+        <a href="#" class="btn-add" onclick="alert('Add Shift form coming soon! Wire to a Schedule model in server.js.'); return false;">+ Add Shift</a>
+      </div>
+
+      <div class="info-note">
+        ℹ️ <strong>Admin Controls:</strong> This page shows upcoming volunteer shifts. 
+        You can confirm, edit, or remove shifts. Volunteers see their personal schedule at 
+        <code>/schedule</code>. Full CRUD requires wiring a <code>Schedule</code> MongoDB model — 
+        placeholder data is shown below.
+      </div>
+
+      <% if (shifts && shifts.length > 0) { %>
+        <table class="schedule-table">
+          <thead>
+            <tr>
+              <th>Volunteer</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Role</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% shifts.forEach(function(shift) {
+              const d = new Date(shift.date);
+              const dateStr = d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' });
+            %>
+            <tr>
+              <td><strong><%= shift.volunteer %></strong></td>
+              <td><%= dateStr %></td>
+              <td><%= shift.startTime %> – <%= shift.endTime %></td>
+              <td><%= shift.role %></td>
+              <td><%= shift.location %></td>
+              <td><span class="badge <%= shift.status %>"><%= shift.status.charAt(0).toUpperCase() + shift.status.slice(1) %></span></td>
+              <td>
+                <a href="#" class="action-btn" onclick="alert('Edit shift #<%= shift.id %> — wire to POST /admin/schedule/:id'); return false;">Edit</a>
+                <a href="#" class="action-btn danger" onclick="if(confirm('Remove this shift?')) alert('Delete shift #<%= shift.id %> — wire to DELETE /admin/schedule/:id'); return false;">Remove</a>
+              </td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div style="text-align:center; padding: 3rem; color: #9ca3af;">
+          <p style="font-size: 1.5rem;">📭</p>
+          <p>No shifts scheduled yet. Add one above.</p>
+        </div>
+      <% } %>
+    </main>
+  </div>
+
+</body>
+</html>

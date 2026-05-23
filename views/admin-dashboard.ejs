@@ -56,6 +56,19 @@
         </a>
       </div>
 
+    <div class="sidebar-section">
+      <div class="sidebar-label">Volunteers</div>
+      <a href="/admin/schedule" class="sidebar-link">
+        <span class="icon">📅</span> Schedule
+      </a>
+    </div>
+
+    <div class="sidebar-bottom">
+      <strong><%= employee.name %></strong>
+      <%= employee.employeeId %><br />
+      <a href="/admin/logout">Log out</a>
+    </div>
+  </aside>
       <div class="sidebar-section">
         <div class="sidebar-label">Employees</div>
         <!-- [CHANGED] Removed class "active" from this link — it was incorrectly highlighted -->

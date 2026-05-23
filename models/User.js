@@ -35,6 +35,9 @@ const userSchema = new mongoose.Schema(
       type: [{ type: String, enum: ['client', 'volunteer', 'admin'] }],
       default: ['client']
     },
+    householdSize: {
+      type: Number
+    },
     firstTimeMode: {
       type: Boolean,
       default: true

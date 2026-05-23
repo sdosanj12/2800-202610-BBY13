@@ -1,6 +1,7 @@
 /**
- * [ADDED FROM ADMIN ZIP]
  * generateEmployee.js
+ * 
+ * @author Supreet Dosanj
  * -------------------
  * Run this script to create a new employee record in MongoDB.
  * The script prints the generated Employee ID — give that ID to the employee

@@ -593,6 +593,44 @@ app.get("/volunteer/dashboard", (req, res) => {
   });
 });
 
+/* === Volunteer Schedule route === */
+
+app.get("/schedule", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
+  // Placeholder schedule data — replace with DB model when schedule feature is built
+  const today = new Date();
+  const shifts = [
+    {
+      id: 1,
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "09:00",
+      endTime: "13:00",
+      role: "Inventory Sorting",
+      location: "Warehouse A",
+      status: "upcoming",
+    },
+    {
+      id: 2,
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3),
+      startTime: "14:00",
+      endTime: "17:00",
+      role: "Client Intake",
+      location: "Front Desk",
+      status: "upcoming",
+    },
+  ];
+  res.render("volunteer-schedule", {
+    username: req.user.username,
+    shifts,
+    isAdmin: req.user.roles && req.user.roles.includes("admin"),
+  });
+});
+
+/* === Admin routes ===
+ * Public: /admin/login, /admin/logout (no adminSessionValidation)
+ * Protected: all others use adminSessionValidation inline
+ * [CHANGED] Removed app.use("/admin", adminSessionValidation) — caused route
+ * conflicts by stripping the /admin prefix. Middleware now applied per-route.
+ */
 app.get("/clockin", sessionValidation, volunteerOrAdminAuthorization, (req, res) => {
   res.render("clock-in", {
     username: req.user.username,
@@ -2459,6 +2497,114 @@ app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async 
   }
 });
 
+// SAVE SETTINGS TO USER PROFILE
+app.post("/api/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        householdSize,
+        allergies,
+        dietaryRestrictions
+      },
+      {
+        new: true
+      }
+    );
+
+    res.json({
+      success: true,
+      user: updatedUser
+    });
+
+  } catch (err) {
+
+    console.error("Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+});
+// PROFILE PAGE
+app.get("/profile", protect, async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+      user: {},
+      error: "Failed to load profile"
+    });
+  }
+});
+
+
+// SAVE PROFILE
+app.post("/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    await User.findByIdAndUpdate(req.user._id, {
+
+      householdSize,
+
+      allergies: allergies || [],
+
+      dietaryRestrictions: dietaryRestrictions || []
+
+    });
+
+    const updatedUser =
+      await User.findById(req.user._id);
+
+    res.render("profile", {
+
+      user: updatedUser,
+
+      success: "Profile updated successfully"
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+
+      user: req.user,
+
+      error: "Failed to update profile"
+
+    });
+  }
+});
+
+/* === Static + 404 === */
 /** POST /admin/low-stock-alerts/dismiss-read — Deletes all read low-stock notifications. */
 app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (req, res) => {
   try {
@@ -2512,12 +2658,55 @@ app.post("/admin/low-stock-alerts/:id/restock", adminSessionValidation, async (r
 })
 
 
-/* ============================================================
- *  24. 404 CATCH-ALL
- * ============================================================ */
+/* === Admin Volunteer Schedule page === */
+
+// GET /admin/schedule — admin views and manages volunteer schedules
+app.get("/admin/schedule", adminSessionValidation, (req, res) => {
+  const today = new Date();
+  // Placeholder shifts — wire to a Schedule model when the DB layer is ready
+  const shifts = [
+    {
+      id: 1,
+      volunteer: "Alice Johnson",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "09:00",
+      endTime: "13:00",
+      role: "Inventory Sorting",
+      location: "Warehouse A",
+      status: "confirmed",
+    },
+    {
+      id: 2,
+      volunteer: "Bob Chen",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1),
+      startTime: "13:00",
+      endTime: "17:00",
+      role: "Client Intake",
+      location: "Front Desk",
+      status: "confirmed",
+    },
+    {
+      id: 3,
+      volunteer: "Maria Santos",
+      date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3),
+      startTime: "10:00",
+      endTime: "14:00",
+      role: "Food Packing",
+      location: "Warehouse B",
+      status: "pending",
+    },
+  ];
+  res.render("admin-schedule", {
+    employee: req.employee,
+    shifts,
+  });
+});
+
+/* === 404 catch-all === */
 
 /** Catch-all — renders the 404 page for any unmatched routes. */
 app.use((req, res) => {
+  console.log("404 HIT:", req.method, req.path);
   res.status(404);
   res.render("404");
 });
