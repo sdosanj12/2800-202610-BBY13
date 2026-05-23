@@ -1,3 +1,16 @@
+/**
+ * Reports Chart Script
+ * --------------------
+ * Handles:
+ *  - Processing monthly dataset vectors
+ *  - Rendering line, bar, and visits charts
+ *  - Mapping raw Express/Mongo data into Chart.js formats
+ *  - Graceful fallback when datasets are empty
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author Gemini 3.5 Flash
+ */
+
 document.addEventListener("DOMContentLoaded", function () {
   const rawChartData = window.rawChartData || [];
   const rawItemData = window.rawItemData || [];

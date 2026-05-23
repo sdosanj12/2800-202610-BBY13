@@ -1,3 +1,18 @@
+/**
+ * Checkout Page Styles
+ * --------------------
+ * Defines layout, colors, and components for the checkout page.
+ * Includes:
+ *  - Brand color variables
+ *  - Global resets and typography
+ *  - Payment form styling
+ *  - Order summary card
+ *  - Responsive grid adjustments
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author: Gemini 3.5 Flash
+ */
+
 :root {
   /* Brand colours */
   --color-navy: #1a3a5c; /* navbar background              */

@@ -1,3 +1,17 @@
+/**
+ * Donation Page Styles
+ * --------------------
+ * Defines:
+ *  - Brand color variables + global layout
+ *  - Impact stats + donation amount UI
+ *  - Frequency toggle + custom amount input
+ *  - Sticky donation card + trust badges
+ *  - Responsive adjustments for smaller screens
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author: Gemini 3.5 Flash
+ */
+
 :root {
   /* Brand colours */
   --color-navy: #1a3a5c; /* navbar background              */

@@ -1,3 +1,14 @@
+/**
+ * Donation Selection Script
+ * -------------------------
+ * Handles:
+ *  - Frequency + preset amount button selection
+ *  - Custom amount input logic
+ *  - Validation before proceeding
+ *  - Redirect to checkout with amount + frequency
+ * @author YenYi Huang
+ */
+
 document.querySelectorAll(".frequency-btn").forEach((btn) => {
   btn.addEventListener("click", function () {
     document

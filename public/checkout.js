@@ -1,3 +1,15 @@
+/**
+ * Checkout Page Script
+ * --------------------
+ * Handles:
+ *  - Reading amount & frequency from URL
+ *  - Updating UI values (amount, frequency, impact text)
+ *  - Payment method selection
+ *  - Card + expiry input formatting
+ *  - Form submission alert
+ * @author YenYi Huang
+ */
+
 const urlParams = new URLSearchParams(window.location.search);
 const amount = parseFloat(urlParams.get("amount")) || 70;
 const frequency = urlParams.get("frequency") || "once";

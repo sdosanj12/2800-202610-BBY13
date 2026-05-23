@@ -1,3 +1,15 @@
+/**
+ * Clock In/Out System Script
+ * --------------------------
+ * Handles:
+ *  - Clock‑in, break, and clock‑out actions
+ *  - Timer updates and duration calculations
+ *  - Shift history rendering
+ *  - LocalStorage for active shift + staff name
+ *  - API communication for shift lifecycle
+ * @author YenYi Huang
+ */
+
 // Configuration Keys
 const STORAGE_KEYS = {
   CURRENT_SHIFT_ID: "foodbank_mongo_shift_id",
@@ -18,9 +30,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// ============================================
 // CLOCK IN PAGE LOGIC
-// ============================================
 
 function initClockInPage() {
   updateCurrentTimeDisplay();
@@ -143,9 +153,7 @@ async function displayShiftHistory() {
   }
 }
 
-// ============================================
 // CLOCKED IN TRACKING PAGE LOGIC
-// ============================================
 
 function initClockedInPage() {
   const currentShiftId = localStorage.getItem(STORAGE_KEYS.CURRENT_SHIFT_ID);

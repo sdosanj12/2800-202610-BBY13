@@ -1,3 +1,16 @@
+/**
+ * Reports Page Styles
+ * -------------------
+ * Defines:
+ *  - Report section layout + headings
+ *  - Card + table styling for analytics
+ *  - Hover effects + responsive tweaks
+ *  - Print‑friendly formatting for exported reportsm
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author: Gemini 3.5 Flash
+ */
+
 .report-section {
   padding: 20px 0;
   width: 100% !important;
