@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Schedule — Food Bank Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/volunteer-dashboard.css" />
+    <style>
+      .schedule-header {
+        margin-bottom: 1.5rem;
+      }
+      .schedule-header h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--navy, #1a3a5c);
+        margin-bottom: 0.25rem;
+      }
+      .schedule-header p {
+        color: #6b7280;
+        font-size: 0.95rem;
+      }
+      .shift-card {
+        background: #fff;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 0.875rem;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1.25rem;
+        transition: box-shadow 0.18s;
+      }
+      .shift-card:hover {
+        box-shadow: 0 4px 16px rgba(26,58,92,0.08);
+      }
+      .shift-date-block {
+        min-width: 3.5rem;
+        text-align: center;
+        background: #eef2ff;
+        border-radius: 0.6rem;
+        padding: 0.5rem 0.4rem;
+      }
+      .shift-date-block .day-num {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1a3a5c;
+        line-height: 1;
+      }
+      .shift-date-block .day-mon {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        letter-spacing: 0.05em;
+      }
+      .shift-info h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1a3a5c;
+        margin-bottom: 0.25rem;
+      }
+      .shift-meta {
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+      .shift-meta span { margin-right: 1rem; }
+      .badge-status {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.2rem 0.65rem;
+        border-radius: 9999px;
+        margin-top: 0.4rem;
+      }
+      .badge-status.upcoming { background: #dbeafe; color: #1d4ed8; }
+      .badge-status.confirmed { background: #dcfce7; color: #166534; }
+      .badge-status.pending   { background: #fef9c3; color: #854d0e; }
+      .empty-schedule {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #9ca3af;
+      }
+      .empty-schedule .emoji { font-size: 2.5rem; margin-bottom: 0.75rem; }
+      .admin-banner {
+        background: #fffbeb;
+        border: 1.5px solid #fbbf24;
+        border-radius: 0.75rem;
+        padding: 0.85rem 1.1rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+        color: #92400e;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <nav class="navbar">
+      <div class="nav-left">
+        <a href="/volunteer/dashboard" class="nav-brand">Food Bank Tracker</a>
+      </div>
+      <div class="nav-right">
+        <a href="/profile" class="profile-btn">👤 <span><%= username %></span></a>
+        <a href="/logout" class="logout-btn">Log Out</a>
+      </div>
+    </nav>
+
+    <div class="dashboard-layout">
+      <aside class="sidebar">
+        <h3 class="sidebar-title">Volunteer Menu</h3>
+        <a href="/volunteer/dashboard" class="sidebar-link">Dashboard</a>
+        <a href="/clockin" class="sidebar-link">Clock In / Out</a>
+        <a href="/inventory" class="sidebar-link">Inventory</a>
+        <a href="/schedule" class="sidebar-link active">Schedule</a>
+        <a href="/assigned-tasks" class="sidebar-link">Assigned Tasks</a>
+        <a href="/logout" class="sidebar-link logout-link">Log Out</a>
+      </aside>
+
+      <main class="main-content">
+        <div class="schedule-header">
+          <h1>📅 My Upcoming Shifts</h1>
+          <p>Your scheduled volunteer shifts for the coming days.</p>
+        </div>
+
+        <% if (isAdmin) { %>
+        <div class="admin-banner">
+          ⚙️ You have admin access. 
+          <a href="/admin/schedule" style="color:#92400e; font-weight:600; margin-left:4px;">Manage all volunteer schedules →</a>
+        </div>
+        <% } %>
+
+        <% if (shifts && shifts.length > 0) { %>
+          <% shifts.forEach(function(shift) {
+            const d = new Date(shift.date);
+            const dayNum = d.getDate();
+            const mon = d.toLocaleString('default', { month: 'short' });
+            const weekday = d.toLocaleString('default', { weekday: 'long' });
+          %>
+          <div class="shift-card">
+            <div class="shift-date-block">
+              <div class="day-num"><%= dayNum %></div>
+              <div class="day-mon"><%= mon %></div>
+            </div>
+            <div class="shift-info">
+              <h3><%= shift.role %></h3>
+              <div class="shift-meta">
+                <span>🕘 <%= shift.startTime %> – <%= shift.endTime %></span>
+                <span>📍 <%= shift.location %></span>
+                <span>📆 <%= weekday %></span>
+              </div>
+              <span class="badge-status <%= shift.status %>"><%= shift.status.charAt(0).toUpperCase() + shift.status.slice(1) %></span>
+            </div>
+          </div>
+          <% }); %>
+        <% } else { %>
+          <div class="empty-schedule">
+            <div class="emoji">📭</div>
+            <p>No upcoming shifts scheduled. Check back soon!</p>
+          </div>
+        <% } %>
+      </main>
+    </div>
+  </body>
+</html>
