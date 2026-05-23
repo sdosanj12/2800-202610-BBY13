@@ -1,5 +1,4 @@
 /**
- * [ADDED FROM ADMIN ZIP]
  * generateEmployee.js
  * -------------------
  * Run this script to create a new employee record in MongoDB.
