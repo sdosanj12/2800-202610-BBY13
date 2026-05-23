@@ -1,5 +1,5 @@
 <nav class="navbar">
-  <a href="/" class="nav-brand">Food Bank Tracker</a>
+  <a class="nav-brand">Food Bank Tracker</a>
 
   <ul class="nav-links">
     <% if (locals.user && user.roles && user.roles.includes('client')) { %>
@@ -13,11 +13,12 @@
 
     <% } else if (locals.user && user.roles && user.roles.includes('admin')) { %>
       <li><a href="/admin/dashboard" class="<%= locals.currentPath === '/admin/dashboard' ? 'nav-active' : '' %>">Dashboard</a></li>
-      <li><a href="/requests">Requests</a></li>
+      <li><a href="/request">Requests</a></li>
 
     <% } %>
 
     <% if (locals.user) { %>
+      <li><a href="/profile" class="nav-brand">Profile</a></li>
       <li><a href="/logout" class="nav-logout">Logout</a></li>
     <% } %>
   </ul>
