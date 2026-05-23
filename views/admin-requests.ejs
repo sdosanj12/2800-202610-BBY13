@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food Requests — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin-requests.css" />
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <nav class="topbar">
+    <a href="/admin/dashboard" class="topbar-brand">Food Bank Tracker</a>
+    <div class="topbar-right">
+      <span class="topbar-user">Admin: <strong><%= username %></strong></span>
+      <a href="/admin/logout" class="btn-shell">Log out</a>
+    </div>
+  </nav>
+
+  <div class="shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link"><span class="icon">📊</span> Dashboard</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Requests</div>
+        <a href="/admin/requests" class="sidebar-link active"><span class="icon">📝</span> Food Requests</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link"><span class="icon">📦</span> All Items</a>
+        <a href="/admin/audit-log" class="sidebar-link"><span class="icon">📋</span> History &amp; Audit Log</a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link"><span class="icon">⚠️</span> Low Stock Alerts</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link"><span class="icon">👥</span> All Employees</a>
+        <a href="/admin/employees/codes" class="sidebar-link"><span class="icon">🔑</span> Generate Codes</a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= username %></strong>
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="page-header">
+        <div>
+          <h1>Food Requests</h1>
+          <div class="sub"><%= new Date().toLocaleDateString('en-CA', {weekday:'long',year:'numeric',month:'long',day:'numeric'}) %></div>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Requests</div>
+          <div class="stat-value"><%= stats.total %></div>
+        </div>
+        <div class="stat-card" <% if (stats.pending > 0) { %>style="border-left: 3px solid #f59e0b;"<% } %>>
+          <div class="stat-label">Pending</div>
+          <div class="stat-value" <% if (stats.pending > 0) { %>style="color: #92400e;"<% } %>><%= stats.pending %></div>
+          <% if (stats.pending > 0) { %><div class="stat-sub">Needs attention</div><% } %>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Approved</div>
+          <div class="stat-value" style="color: #6d28d9;"><%= stats.approved %></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Denied</div>
+          <div class="stat-value" style="color: #991b1b;"><%= stats.denied %></div>
+        </div>
+      </div>
+
+      <!-- Requests Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2>All Requests</h2>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="filterTable('all', this)">All</button>
+          <button class="tab-btn" onclick="filterTable('pending', this)">Pending</button>
+          <button class="tab-btn" onclick="filterTable('approved', this)">Approved</button>
+          <button class="tab-btn" onclick="filterTable('denied', this)">Denied</button>
+          <button class="tab-btn" onclick="filterTable('picked-up', this)">Picked Up</button>
+          <button class="tab-btn" onclick="filterTable('cancelled', this)">Cancelled</button>
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Household</th>
+                <th>Dietary Needs</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="requestsTableBody">
+              <% if (requests && requests.length > 0) { %>
+                <% requests.forEach(function(req) { %>
+                  <tr data-status="<%= req.status %>">
+                    <td>
+                      <% if (req.clientId) { %>
+                        <div class="client-name"><%= req.clientId.username %></div>
+                        <div class="client-email"><%= req.clientId.email %></div>
+                      <% } else { %>
+                        <div class="client-name" style="color: var(--color-muted);">Deleted User</div>
+                      <% } %>
+                    </td>
+                    <td><%= req.householdSize %></td>
+                    <td><%= req.dietaryNeeds && req.dietaryNeeds.length > 0 ? req.dietaryNeeds.join(', ') : '-' %></td>
+                    <td>
+                      <span class="chip chip-<%= req.status %>">
+                        <span class="dot dot-<%= req.status %>"></span>
+                        <%= req.status.charAt(0).toUpperCase() + req.status.slice(1) %>
+                      </span>
+                    </td>
+                    <td class="muted"><%= new Date(req.createdAt).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) %></td>
+                    <td class="notes-cell" title="<%= req.clientNotes || req.notes || '' %>"><%= req.clientNotes || req.notes || '-' %></td>
+                    <td>
+                      <% if (req.status === 'pending') { %>
+                        <div class="actions-cell">
+                          <button class="btn-approve" onclick="openApproveModal('<%= req._id %>', '<%= req.clientId ? req.clientId.username : 'Unknown' %>')">Approve</button>
+                          <button class="btn-deny" onclick="openDenyModal('<%= req._id %>', '<%= req.clientId ? req.clientId.username : 'Unknown' %>')">Deny</button>
+                        </div>
+                      <% } else if (req.status === 'denied' && req.denialReason) { %>
+                        <span class="muted" style="font-size:0.78rem;" title="<%= req.denialReason %>">Reason: <%= req.denialReason.length > 30 ? req.denialReason.substring(0, 30) + '...' : req.denialReason %></span>
+                      <% } else if (req.status === 'approved' && req.pickupDate) { %>
+                        <span class="muted" style="font-size:0.78rem;">Pickup: <%= new Date(req.pickupDate).toLocaleDateString('en-US', { month:'short', day:'numeric' }) %> at <%= req.pickupTime %></span>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }); %>
+              <% } else { %>
+                <tr>
+                  <td colspan="7" class="empty-state">No food requests have been submitted yet.</td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel-footer">
+          <small>Showing <span id="visibleCount"><%= requests.length %></span> of <%= requests.length %> requests</small>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <span>© 2026 Food Bank Tracker</span>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Support</a>
+    </div>
+  </footer>
+
+  <!-- APPROVE MODAL -->
+  <div class="modal-overlay" id="approveModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('approveModal')">✕</button>
+      <h2>Approve Request</h2>
+      <p class="modal-desc">Set a pickup date and time for this client's food request.</p>
+      <div class="modal-client-info" id="approve-client-info"></div>
+      <div class="form-grid">
+        <div>
+          <label class="f-label">Pickup Date <span style="color:#dc2626;">*</span></label>
+          <input class="f-input" type="date" id="approvePickupDate" required />
+        </div>
+        <div>
+          <label class="f-label">Pickup Time <span style="color:#dc2626;">*</span></label>
+          <input class="f-input" type="time" id="approvePickupTime" required />
+        </div>
+      </div>
+      <div id="approve-error" class="flash-error" style="display:none;"></div>
+      <div class="modal-footer-row">
+        <button class="btn-outline" onclick="closeModal('approveModal')">Cancel</button>
+        <button class="btn-primary" id="approveSubmitBtn" onclick="submitApproval()">Approve Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DENY MODAL -->
+  <div class="modal-overlay" id="denyModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('denyModal')">✕</button>
+      <h2>Deny Request</h2>
+      <p class="modal-desc">Optionally provide a reason for denying this food request.</p>
+      <div class="modal-client-info" id="deny-client-info"></div>
+      <div>
+        <label class="f-label">Denial Reason (optional)</label>
+        <textarea class="f-textarea" id="denyReason" rows="3" maxlength="500" placeholder="Reason for denial..."></textarea>
+      </div>
+      <div id="deny-error" class="flash-error" style="display:none;"></div>
+      <div class="modal-footer-row">
+        <button class="btn-outline" onclick="closeModal('denyModal')">Cancel</button>
+        <button class="btn-danger" id="denySubmitBtn" onclick="submitDenial()">Deny Request</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentRequestId = null;
+
+    /* ---- Filter Tabs ---- */
+    function filterTable(status, btn) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      let visible = 0;
+      document.querySelectorAll('#requestsTableBody tr[data-status]').forEach(function(row) {
+        if (status === 'all' || row.dataset.status === status) {
+          row.style.display = '';
+          visible++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      document.getElementById('visibleCount').textContent = visible;
+    }
+
+    /* ---- Modal Helpers ---- */
+    function openApproveModal(requestId, clientName) {
+      currentRequestId = requestId;
+      document.getElementById('approve-client-info').textContent = 'Client: ' + clientName;
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.getElementById('approvePickupDate').min = tomorrow.toISOString().split('T')[0];
+      document.getElementById('approvePickupDate').value = '';
+      document.getElementById('approvePickupTime').value = '';
+      document.getElementById('approve-error').style.display = 'none';
+      document.getElementById('approveModal').classList.add('open');
+    }
+
+    function openDenyModal(requestId, clientName) {
+      currentRequestId = requestId;
+      document.getElementById('deny-client-info').textContent = 'Client: ' + clientName;
+      document.getElementById('denyReason').value = '';
+      document.getElementById('deny-error').style.display = 'none';
+      document.getElementById('denyModal').classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    // Close modal on backdrop click
+    document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('open');
+      });
+    });
+
+    /* ---- Approve ---- */
+    async function submitApproval() {
+      var pickupDate = document.getElementById('approvePickupDate').value;
+      var pickupTime = document.getElementById('approvePickupTime').value;
+      var errorEl = document.getElementById('approve-error');
+
+      if (!pickupDate || !pickupTime) {
+        errorEl.textContent = 'Please select both a pickup date and time.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      document.getElementById('approveSubmitBtn').disabled = true;
+      try {
+        var res = await fetch('/admin/api/requests/' + currentRequestId + '/approve', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pickupDate: pickupDate, pickupTime: pickupTime })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          errorEl.textContent = data.error || 'Failed to approve request.';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+      document.getElementById('approveSubmitBtn').disabled = false;
+    }
+
+    /* ---- Deny ---- */
+    async function submitDenial() {
+      var denialReason = document.getElementById('denyReason').value;
+      var errorEl = document.getElementById('deny-error');
+
+      document.getElementById('denySubmitBtn').disabled = true;
+      try {
+        var res = await fetch('/admin/api/requests/' + currentRequestId + '/deny', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ denialReason: denialReason })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          errorEl.textContent = data.error || 'Failed to deny request.';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+      document.getElementById('denySubmitBtn').disabled = false;
+    }
+  </script>
+
+</body>
+</html>

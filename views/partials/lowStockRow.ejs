@@ -1,0 +1,26 @@
+<!--
+  Inventory Table Row
+  -------------------
+  Renders a single item entry:
+    • Item name
+    • Quantity on hand
+    • Storage location
+    • Expiry date (formatted YYYY‑MM‑DD or N/A)
+  Used inside dynamic EJS loops for inventory tables.
+  @author YenYi Huang
+-->
+
+<tr class="table-warning">
+    <th scope="row">
+        <%= item.name %>
+    </th>
+    <td>
+        <%= item.quantity %>
+    </td>
+    <td>
+        <%= item.storageLocation %>
+    </td>
+    <td>
+        <%= item.expiryDate ? item.expiryDate.toISOString().slice(0,10) : "N/A" %>
+    </td>
+</tr>

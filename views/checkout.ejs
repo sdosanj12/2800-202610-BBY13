@@ -1,0 +1,212 @@
+<!--
+  Checkout Page Template
+  ----------------------
+  Renders:
+    • Navbar + footer partials
+    • Donation checkout form (personal info + payment details)
+    • Order summary with dynamic amount + impact text
+  Includes:
+    • Responsive layout
+    • Secure payment UI elements
+    • JS hooks for formatting + validation
+    @author YenYi Huang
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout | Food Bank Tracker</title>
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="checkout.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+</head>
+
+<body>
+    <header id="navbar-container">
+        <%- include('partials/navbar') %>
+    </header>
+
+    <main>
+        <div class="checkout-container">
+            <a href="/donate" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Back to Donation
+            </a>
+
+            <div class="checkout-header">
+                <h1>Complete Your Donation</h1>
+                <p>Your generosity makes a real difference in our community</p>
+            </div>
+
+            <form id="checkoutForm">
+                <div class="checkout-grid">
+                    <!-- Payment Form -->
+                    <div>
+                        <!-- Personal Information -->
+                        <div class="payment-section" style="margin-bottom: 2rem;">
+                            <h2 class="section-title">
+                                <span class="section-number">1</span>
+                                Personal Information
+                            </h2>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-input" placeholder="John" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-input" placeholder="Doe" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Email Address</label>
+                                <input type="email" class="form-input" placeholder="john.doe@example.com" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Phone Number (Optional)</label>
+                                <input type="tel" class="form-input" placeholder="+1 (604) 555-0123">
+                            </div>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="payment-section">
+                            <h2 class="section-title">
+                                <span class="section-number">2</span>
+                                Payment Details
+                            </h2>
+
+                            <div class="form-group">
+                                <label class="form-label">Payment Method</label>
+                                <div class="payment-methods">
+                                    <div class="payment-method active" data-method="card">
+                                        <svg width="40" height="28" viewBox="0 0 40 28" fill="none">
+                                            <rect x="1" y="1" width="38" height="26" rx="3" stroke="#64748b"
+                                                stroke-width="2" />
+                                            <rect x="1" y="7" width="38" height="6" fill="#64748b" />
+                                        </svg>
+                                    </div>
+                                    <div class="payment-method" data-method="visa">
+                                        <span style="color: #1434CB; font-weight: 700; font-size: 1.25rem;">VISA</span>
+                                    </div>
+                                    <div class="payment-method" data-method="mastercard">
+                                        <svg width="40" height="28" viewBox="0 0 40 28">
+                                            <circle cx="14" cy="14" r="12" fill="#EB001B" />
+                                            <circle cx="26" cy="14" r="12" fill="#F79E1B" />
+                                        </svg>
+                                    </div>
+                                    <div class="payment-method" data-method="amex">
+                                        <span style="color: #006FCF; font-weight: 700; font-size: 1rem;">AMEX</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Card Number</label>
+                                <input type="text" class="form-input" placeholder="1234 5678 9012 3456" maxlength="19"
+                                    required>
+                            </div>
+
+                            <div class="form-row-3">
+                                <div class="form-group">
+                                    <label class="form-label">Expiry Date</label>
+                                    <input type="text" class="form-input" placeholder="MM / YY" maxlength="7" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">CVV</label>
+                                    <input type="text" class="form-input" placeholder="123" maxlength="4" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">ZIP</label>
+                                    <input type="text" class="form-input" placeholder="V6B" maxlength="6" required>
+                                </div>
+                            </div>
+
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="saveCard" class="checkbox-input">
+                                <label for="saveCard" class="checkbox-label">
+                                    Save card details for future donations
+                                </label>
+                            </div>
+
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="taxReceipt" class="checkbox-input" checked>
+                                <label for="taxReceipt" class="checkbox-label">
+                                    Email me a tax receipt for my donation
+                                </label>
+                            </div>
+
+                            <button type="submit" class="submit-btn">
+                                Complete Donation
+                            </button>
+
+                            <div class="security-note">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                                Your payment information is encrypted and secure
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="order-summary">
+                        <h3 class="summary-title">Order Summary</h3>
+
+                        <div class="summary-item">
+                            <span class="summary-label">Donation Type</span>
+                            <span class="summary-value">
+                                <span id="frequencyDisplay">One-time</span>
+                                <span class="frequency-badge" id="frequencyBadge">One-time</span>
+                            </span>
+                        </div>
+
+                        <div class="summary-item">
+                            <span class="summary-label">Donation Amount</span>
+                            <span class="summary-value" id="amountDisplay">$70.00</span>
+                        </div>
+
+                        <div class="summary-total">
+                            <span class="total-label">Total</span>
+                            <span class="total-amount" id="totalAmount">$70</span>
+                        </div>
+
+                        <div class="impact-preview">
+                            <h4>Your Impact</h4>
+                            <p id="impactText">
+                                Your donation of $70 will feed a family of four for one week with nutritious meals.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div id="footer-container">
+            <%- include('partials/footer') %>
+        </div>
+    </footer>
+
+
+    <script src="checkout.js">
+    </script>
+</body>
+
+</html>

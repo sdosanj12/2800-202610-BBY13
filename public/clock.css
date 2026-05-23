@@ -1,4 +1,17 @@
-/* Clock In/Out System Styles */
+/**
+ * Clock In/Out System Styles
+ * --------------------------
+ * Provides styling for:
+ *  - Timer display + animations
+ *  - Status indicators and pulse effects
+ *  - Cards, buttons, and form controls
+ *  - Shift history list + details
+ *  - Shared navbar and footer elements
+ *  - Responsive + print-friendly layouts
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author: Gemini 3.5 Flash
+ */
 
 .clock-in-section {
   min-height: calc(100vh - 200px);
@@ -372,7 +385,6 @@
   }
 }
 
-
 /* ================================================================
    SHARED PARTIAL STYLES — navbar.ejs + footer.ejs
    ================================================================ */
@@ -441,4 +453,3 @@
   color: #1a1a2e;
   text-decoration: underline;
 }
-

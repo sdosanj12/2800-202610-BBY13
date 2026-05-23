@@ -1,3 +1,13 @@
+/**
+ * FoodRequest model — Represents a client's food assistance request.
+ * Tracks status through: pending → approved → picked-up (or denied/cancelled).
+ * Supports inventory allocation, pickup scheduling, AI-generated staff notes,
+ * and multi-language support.
+ *
+ * @author Brian Lau
+ * @author Supreet Dosanj
+ */
+
 const mongoose = require('mongoose');
 
 const foodRequestSchema = new mongoose.Schema(

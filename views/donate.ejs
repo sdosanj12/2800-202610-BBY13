@@ -1,0 +1,154 @@
+<!--
+  Donation Page Template
+  ----------------------
+  Renders:
+    • Navbar + footer partials
+    • Impact statistics + mission overview
+    • Donation amount selector (preset + custom)
+    • Frequency toggle and proceed‑to‑checkout flow
+  Includes:
+    • Responsive layout + trust badges
+    • JS hooks for amount/frequency selection
+    @author YenYi Huang
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Our Mission | Food Bank Tracker</title>
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="donation.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+
+
+</head>
+
+<body>
+    <header id="navbar-container">
+        <%- include('partials/navbar') %>
+    </header>
+
+
+    <main>
+        <div class="donate-container">
+            <div class="donate-hero">
+                <h1>Support Our Mission</h1>
+                <p>Every contribution helps us provide nutritious food to families in need across Greater Vancouver</p>
+            </div>
+
+            <div class="donate-grid">
+                <!-- Impact Card -->
+                <div class="impact-card">
+                    <h2>Your Impact</h2>
+
+                    <div class="impact-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">2,400+</span>
+                            <span class="stat-label">Families Served</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">18,000</span>
+                            <span class="stat-label">Meals Provided</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">95%</span>
+                            <span class="stat-label">Goes to Programs</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">100%</span>
+                            <span class="stat-label">Tax Deductible</span>
+                        </div>
+                    </div>
+
+                    <div class="impact-text">
+                        <p style="margin-bottom: 1rem;">
+                            Your donation directly supports our food logistics operations. We purchase bulk nutritious
+                            essentials, fresh produce, and manage dynamic inventory to ensure no family goes hungry.
+                        </p>
+                        <p>
+                            <strong>$70</strong> feeds a family of four for a week.<br>
+                            <strong>$350</strong> supports 5 families with essential groceries.<br>
+                            <strong>$1,500</strong> stocks our pantry for an entire month.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Donation Form Card -->
+                <div class="donation-card">
+                    <div class="frequency-toggle">
+                        <button class="frequency-btn active" data-frequency="once">Give Once</button>
+                        <button class="frequency-btn" data-frequency="monthly">Monthly</button>
+                    </div>
+
+                    <div class="section-label">Select Amount</div>
+
+                    <div class="amount-grid">
+                        <button class="amount-btn" data-amount="35">$35</button>
+                        <button class="amount-btn active" data-amount="70">$70</button>
+                        <button class="amount-btn" data-amount="130">$130</button>
+                        <button class="amount-btn" data-amount="350">$350</button>
+                        <button class="amount-btn" data-amount="700">$700</button>
+                        <button class="amount-btn" data-amount="1500">$1,500</button>
+                    </div>
+
+                    <div class="section-label">Custom Amount</div>
+
+                    <div class="custom-amount">
+                        <span class="currency-symbol">$</span>
+                        <input type="number" class="custom-input" placeholder="200" min="5" id="customAmount">
+                        <div class="currency-dropdown">
+                            CAD <span>▼</span>
+                        </div>
+                    </div>
+
+                    <button class="donate-btn" id="proceedBtn">
+                        Proceed to Checkout
+                    </button>
+
+                    <div class="trust-badges">
+                        <div class="badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            </svg>
+                            Secure
+                        </div>
+                        <div class="badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Verified
+                        </div>
+                        <div class="badge">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
+                                </path>
+                            </svg>
+                            100% Tax Deductible
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div id="footer-container">
+            <%- include('partials/footer') %>
+        </div>
+    </footer>
+    <script src="donate.js"></script>
+</body>
+
+</html>

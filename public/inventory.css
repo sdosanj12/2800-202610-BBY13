@@ -1,3 +1,16 @@
+/**
+ * Inventory Page Styles
+ * ----------------------
+ * Defines:
+ *  - Typography + brand variables
+ *  - Card, table, and tag styling
+ *  - Form + button enhancements
+ *  - Shared navbar and footer partials
+ * @author YenYi Huang
+ * AI Assistant:
+ * @author: Gemini 3.5 Flash
+ */
+
 :root {
   --primary-font: "Lexend Deca", sans-serif;
   --heading-font: "Bricolage Grotesque", sans-serif;
@@ -90,7 +103,6 @@ h4,
   border-color: #13653f;
 }
 
-
 /* ================================================================
    SHARED PARTIAL STYLES — navbar.ejs + footer.ejs
    ================================================================ */
@@ -159,4 +171,3 @@ h4,
   color: #1a1a2e;
   text-decoration: underline;
 }
-

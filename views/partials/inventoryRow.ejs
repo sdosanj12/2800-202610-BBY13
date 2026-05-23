@@ -1,0 +1,30 @@
+<!--
+  Inventory Table Row (Editable)
+  ------------------------------
+  Renders:
+    • Item name, quantity, storage location
+    • Expiry date (YYYY‑MM‑DD or N/A)
+    • Edit button linking to item’s edit page
+  Used inside inventory management tables.
+-->
+
+<tr>
+    <th scope="row">
+        <%= item.name %>
+    </th>
+    <td>
+        <%= item.quantity %>
+    </td>
+    <td>
+        <%= item.storageLocation %>
+    </td>
+    <td>
+        <%= item.expireDate ? item.expireDate.toISOString().slice(0, 10) : 'N/A' %>
+    </td>
+    <td>
+        <a href="/inventory/<%= item._id %>/edit" class="btn btn-sm btn-outline-primary">
+            Edit
+        </a>
+    </td>
+
+</tr>
