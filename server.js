@@ -2497,6 +2497,114 @@ app.post("/admin/low-stock-alerts/mark-all-read", adminSessionValidation, async 
   }
 });
 
+// SAVE SETTINGS TO USER PROFILE
+app.post("/api/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        householdSize,
+        allergies,
+        dietaryRestrictions
+      },
+      {
+        new: true
+      }
+    );
+
+    res.json({
+      success: true,
+      user: updatedUser
+    });
+
+  } catch (err) {
+
+    console.error("Profile update error:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+});
+// PROFILE PAGE
+app.get("/profile", protect, async (req, res) => {
+
+  try {
+
+    const user = await User.findById(req.user._id);
+
+    res.render("profile", {
+      user
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+      user: {},
+      error: "Failed to load profile"
+    });
+  }
+});
+
+
+// SAVE PROFILE
+app.post("/profile", protect, async (req, res) => {
+
+  try {
+
+    const {
+      householdSize,
+      allergies,
+      dietaryRestrictions
+    } = req.body;
+
+    await User.findByIdAndUpdate(req.user._id, {
+
+      householdSize,
+
+      allergies: allergies || [],
+
+      dietaryRestrictions: dietaryRestrictions || []
+
+    });
+
+    const updatedUser =
+      await User.findById(req.user._id);
+
+    res.render("profile", {
+
+      user: updatedUser,
+
+      success: "Profile updated successfully"
+
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.render("profile", {
+
+      user: req.user,
+
+      error: "Failed to update profile"
+
+    });
+  }
+});
+
+/* === Static + 404 === */
 /** POST /admin/low-stock-alerts/dismiss-read — Deletes all read low-stock notifications. */
 app.post("/admin/low-stock-alerts/dismiss-read", adminSessionValidation, async (req, res) => {
   try {
