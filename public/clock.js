@@ -1,3 +1,8 @@
+// ============================================
+// @author Yen Yi Huang
+// ============================================
+
+
 // Configuration Keys
 const STORAGE_KEYS = {
   CURRENT_SHIFT_ID: "foodbank_mongo_shift_id",
