@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generate Codes — Food Bank Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin-generate-codes.css" />
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Add Employee — <%= employee.name %></h1>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Overview</div>
+        <a href="/admin/dashboard" class="sidebar-link">📊 Dashboard</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Requests</div>
+        <a href="/admin/requests" class="sidebar-link">📝 Food Requests</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Inventory</div>
+        <a href="/admin/inventory" class="sidebar-link">📦 All Items</a>
+        <a href="/admin/audit-log" class="sidebar-link">📋 History &amp; Audit Log</a>
+        <a href="/admin/low-stock-alerts" class="sidebar-link">⚠️ Low Stock Alerts</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Employees</div>
+        <a href="/admin/employees" class="sidebar-link">👥 All Employees</a>
+        <a href="/admin/employees/codes" class="sidebar-link active">🔑 Generate Codes</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Volunteers</div>
+        <a href="/admin/schedule" class="sidebar-link">📅 Schedule</a>
+      </div>
+      <div class="sidebar-bottom">
+        <strong><%= employee.name %></strong>
+        <%= employee.employeeId %><br />
+        <a href="/admin/logout">Log out</a>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h2>Add New Employee</h2>
+      <p>Fill in the details below to create a new employee account. Share the generated ID and PIN with them securely.</p>
+
+      <div class="card">
+
+        <div class="field-row">
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="emp-name" placeholder="Jane Doe" />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="emp-email" placeholder="jane@example.com" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Role</label>
+            <select id="emp-role">
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Department</label>
+            <input type="text" id="emp-department" placeholder="e.g. General" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>PIN (4–8 digits)</label>
+          <input type="password" id="emp-pin" placeholder="e.g. 1234" maxlength="8" />
+        </div>
+
+        <button class="btn btn-primary" id="generateBtn" onclick="generateEmployee()">
+          Create Employee
+        </button>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="result" id="result">
+          <h3>✅ Employee Created Successfully</h3>
+          <div class="result-grid">
+            <div class="result-field full">
+              <label>Employee ID</label>
+              <span id="res-empid"></span>
+            </div>
+            <div class="result-field">
+              <label>Name</label>
+              <span id="res-name"></span>
+            </div>
+            <div class="result-field">
+              <label>Role</label>
+              <span id="res-role"></span>
+            </div>
+            <div class="result-field">
+              <label>Department</label>
+              <span id="res-department"></span>
+            </div>
+            <div class="result-field">
+              <label>Email</label>
+              <span id="res-email"></span>
+            </div>
+          </div>
+          <div class="warning">⚠️ This PIN is only shown once. Share it securely with the employee.</div>
+          <div class="result-field" style="margin-bottom:1rem;">
+            <label>Temporary PIN</label>
+            <span id="res-pin"></span>
+          </div>
+          <button class="btn btn-copy" onclick="copyResult()">Copy ID &amp; PIN to Clipboard</button>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    async function generateEmployee() {
+      const name       = document.getElementById('emp-name').value.trim();
+      const email      = document.getElementById('emp-email').value.trim();
+      const role       = document.getElementById('emp-role').value;
+      const department = document.getElementById('emp-department').value.trim() || 'General';
+      const pin        = document.getElementById('emp-pin').value.trim();
+
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+      document.getElementById('result').style.display = 'none';
+
+      if (!name || !email || !pin) {
+        errorMsg.textContent = 'Please fill in all required fields.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      if (!/^\d{4,8}$/.test(pin)) {
+        errorMsg.textContent = 'PIN must be 4–8 digits only.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      const btn = document.getElementById('generateBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+
+      try {
+        const res = await fetch('/admin/employees/generate-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, role, department, pin })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMsg.textContent = data.error || 'Failed to create employee.';
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        document.getElementById('res-empid').textContent      = data.employeeId;
+        document.getElementById('res-name').textContent       = data.name;
+        document.getElementById('res-email').textContent      = data.email;
+        document.getElementById('res-role').textContent       = data.role;
+        document.getElementById('res-department').textContent = data.department;
+        document.getElementById('res-pin').textContent        = data.pin;
+        document.getElementById('result').style.display       = 'block';
+
+        // Reset form
+        document.getElementById('emp-name').value       = '';
+        document.getElementById('emp-email').value      = '';
+        document.getElementById('emp-pin').value        = '';
+        document.getElementById('emp-department').value = '';
+
+      } catch (err) {
+        errorMsg.textContent = 'Network error. Please try again.';
+        errorMsg.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Employee';
+      }
+    }
+
+    function copyResult() {
+      const id  = document.getElementById('res-empid').textContent;
+      const pin = document.getElementById('res-pin').textContent;
+      navigator.clipboard.writeText('Employee ID: ' + id + '\nPIN: ' + pin);
+      alert('Copied to clipboard!');
+    }
+  </script>
+
+</body>
+</html>
